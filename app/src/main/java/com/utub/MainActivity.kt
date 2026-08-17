@@ -10,17 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Subscriptions
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -99,7 +96,7 @@ private fun UTubApp(
         else -> "home"
     }
 
-    val tabRoutes = listOf("home", "subscriptions", "library")
+    val tabRoutes = listOf("home", "library", "settings_tab")
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
@@ -118,20 +115,15 @@ private fun UTubApp(
                         },
                     )
                 }
+                // 홈 = 유튜브 웹 하이브리드 (탐색/검색/상세는 웹, 재생은 우리 플레이어)
                 composable("home") {
-                    HomeScreen(
-                        onSearchClick = { navController.navigate("search") },
-                        onSettingsClick = { navController.navigate("settings") },
+                    com.utub.webview.HybridScreen(
+                        playerViewModel = playerViewModel,
+                        onOpenFullPlayer = { navController.navigate("player") },
                     )
                 }
-                composable("subscriptions") { SubscriptionsPlaceholder() }
                 composable("library") { com.utub.ui.library.LibraryScreen() }
-                composable("search") {
-                    SearchScreen(
-                        onBack = { navController.popBackStack() },
-                        onVideoPlayed = { navController.navigate("player") },
-                    )
-                }
+                composable("settings_tab") { SettingsScreen(onBack = { navController.navigate("home") }) }
                 composable("player") {
                     PlayerScreen(
                         onCollapse = {
@@ -147,15 +139,15 @@ private fun UTubApp(
                 }
             }
 
-            // 미니플레이어: 플레이어 화면이 아닐 때 + 재생 항목 있을 때 (SCR-310)
-            if (currentItem != null && currentRoute != "player" && currentRoute != "onboarding") {
+            // 미니플레이어: 플레이어/홈(오버레이) 아닐 때 + 재생 항목 있을 때 (SCR-310)
+            if (currentItem != null && currentRoute != "player" && currentRoute != "home" && currentRoute != "onboarding") {
                 MiniPlayerBar(
                     viewModel = playerViewModel,
                     onExpand = { navController.navigate("player") },
                 )
             }
 
-            // 하단 3탭 (유튜브 앱과 동일 구성 — docs/02 1절)
+            // 하단 3탭: 홈(유튜브 웹) / 보관함(로컬) / 설정
             if (currentRoute in tabRoutes) {
                 NavigationBar {
                     NavigationBarItem(
@@ -165,30 +157,19 @@ private fun UTubApp(
                         label = { Text("홈") },
                     )
                     NavigationBarItem(
-                        selected = currentRoute == "subscriptions",
-                        onClick = { navController.navigate("subscriptions") { popUpTo("home"); launchSingleTop = true } },
-                        icon = { Icon(Icons.Default.Subscriptions, "구독") },
-                        label = { Text("구독") },
-                    )
-                    NavigationBarItem(
                         selected = currentRoute == "library",
                         onClick = { navController.navigate("library") { popUpTo("home"); launchSingleTop = true } },
                         icon = { Icon(Icons.Default.VideoLibrary, "보관함") },
                         label = { Text("보관함") },
                     )
+                    NavigationBarItem(
+                        selected = currentRoute == "settings_tab",
+                        onClick = { navController.navigate("settings_tab") { popUpTo("home"); launchSingleTop = true } },
+                        icon = { Icon(Icons.Default.Settings, "설정") },
+                        label = { Text("설정") },
+                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SubscriptionsPlaceholder() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            "구독 기능은 2차 업데이트에서 제공돼요\n(채널을 앱에 등록하면 새 영상을 모아 보여줍니다)",
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
