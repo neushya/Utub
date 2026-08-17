@@ -148,89 +148,92 @@ fun PlayerScreen(
             }
         }
 
-        // 제목·채널 (컴팩트)
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+        // 제목·채널 + 진행바 (초컴팩트)
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
             Text(
                 currentItem?.title ?: "",
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                currentItem?.channelName ?: "",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // 진행바 (컴팩트)
-        Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    currentItem?.channelName ?: "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Slider(
                 value = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
                 onValueChange = { fraction ->
                     if (durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
                 },
-                modifier = Modifier.height(20.dp),
+                modifier = Modifier.height(16.dp),
             )
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(formatDuration(positionMs), style = MaterialTheme.typography.labelSmall)
-                Spacer(Modifier.weight(1f))
-                Text(formatDuration(durationMs), style = MaterialTheme.typography.labelSmall)
-            }
         }
 
-        // 재생 컨트롤 (버튼 절반 크기)
+        // 재생 컨트롤 + 모드칩 (한 줄 통합, 초컴팩트)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = viewModel::previous, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = viewModel::toggleAudioOnly, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Headphones, if (audioOnly) "오디오" else "비디오",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (audioOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = viewModel::previous, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.SkipPrevious, "이전", modifier = Modifier.size(22.dp))
             }
-            IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(20.dp))
+            IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(18.dp))
             }
-            FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(44.dp)) {
+            FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(40.dp)) {
                 Icon(
                     if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     if (isPlaying) "일시정지" else "재생",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
-            IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(20.dp))
+            IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = viewModel::next, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = viewModel::next, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.SkipNext, "다음", modifier = Modifier.size(22.dp))
             }
+            SpeedChip(speed = speed, onSpeedSelected = viewModel::setSpeed)
         }
 
-        // 모드 칩: 오디오/배속/반복/셔플/취침 (컴팩트)
+        // 반복/셔플/취침 (보조 줄)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AssistChip(
-                onClick = viewModel::toggleAudioOnly,
-                label = { Text(if (audioOnly) "오디오" else "비디오") },
-                leadingIcon = { Icon(Icons.Default.Headphones, null, Modifier.size(16.dp)) },
-            )
-            SpeedChip(speed = speed, onSpeedSelected = viewModel::setSpeed)
-            IconButton(onClick = viewModel::cycleRepeatMode, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = viewModel::cycleRepeatMode, modifier = Modifier.size(34.dp)) {
                 Icon(
                     if (repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     "반복",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = viewModel::toggleShuffle, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = viewModel::toggleShuffle, modifier = Modifier.size(34.dp)) {
                 Icon(
                     Icons.Default.Shuffle, "셔플",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = if (shuffle) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
