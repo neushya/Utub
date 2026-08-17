@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -69,6 +71,14 @@ fun YouTubeWebView(
                     },
                     "UTub",
                 )
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
+                        if (msg.message().startsWith("[UTubDiag]")) {
+                            android.util.Log.i("UTubWeb", msg.message())
+                        }
+                        return true
+                    }
+                }
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                         view.evaluateJavascript(injectJs, null)
