@@ -1,3 +1,5 @@
+@file:kotlin.OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.utub.ui.player
 
 import androidx.annotation.OptIn
@@ -62,7 +64,7 @@ import com.utub.playback.RepeatMode
 import com.utub.ui.shared.formatDuration
 
 /** SCR-300 전체 플레이어 + SCR-320 대기열 (docs/03) */
-@OptIn(UnstableApi::class)
+@OptIn(UnstableApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     onCollapse: () -> Unit,
@@ -176,68 +178,90 @@ fun PlayerScreen(
                 onValueChange = { fraction ->
                     if (durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
                 },
-                modifier = Modifier.height(16.dp),
+                modifier = Modifier.height(14.dp),
+                thumb = {
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape),
+                    )
+                },
+                track = { state ->
+                    val fraction = state.value
+                    Box(Modifier.fillMaxWidth().height(3.dp)) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                    androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                                ),
+                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth(fraction)
+                                .height(3.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primary,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                                ),
+                        )
+                    }
+                },
             )
         }
 
-        // 재생 컨트롤 + 모드칩 (한 줄 통합, 초컴팩트)
+        // 재생 컨트롤 + 모드 (한 줄 통합, 최소 크기)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = viewModel::toggleAudioOnly, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = viewModel::toggleAudioOnly, modifier = Modifier.size(30.dp)) {
                 Icon(
                     Icons.Default.Headphones, if (audioOnly) "오디오" else "비디오",
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(17.dp),
                     tint = if (audioOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = viewModel::previous, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.SkipPrevious, "이전", modifier = Modifier.size(22.dp))
+            IconButton(onClick = viewModel::previous, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.SkipPrevious, "이전", modifier = Modifier.size(20.dp))
             }
-            IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(18.dp))
+            IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(16.dp))
             }
-            FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(40.dp)) {
+            FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(38.dp)) {
                 Icon(
                     if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     if (isPlaying) "일시정지" else "재생",
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(18.dp))
+            IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(16.dp))
             }
-            IconButton(onClick = viewModel::next, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.SkipNext, "다음", modifier = Modifier.size(22.dp))
+            IconButton(onClick = viewModel::next, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.SkipNext, "다음", modifier = Modifier.size(20.dp))
             }
-            SpeedChip(speed = speed, onSpeedSelected = viewModel::setSpeed)
-        }
-
-        // 반복/셔플/취침 (보조 줄)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = viewModel::cycleRepeatMode, modifier = Modifier.size(34.dp)) {
+            IconButton(onClick = viewModel::cycleRepeatMode, modifier = Modifier.size(30.dp)) {
                 Icon(
                     if (repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     "반복",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = viewModel::toggleShuffle, modifier = Modifier.size(34.dp)) {
+            IconButton(onClick = viewModel::toggleShuffle, modifier = Modifier.size(30.dp)) {
                 Icon(
                     Icons.Default.Shuffle, "셔플",
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = if (shuffle) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
             SleepTimerChip(onSelected = viewModel::setSleepTimer)
         }
 
@@ -305,10 +329,17 @@ fun PlayerScreen(
 }
 
 @Composable
-private fun SpeedChip(speed: Float, onSpeedSelected: (Float) -> Unit) {
+private fun SpeedChipCompact(speed: Float, onSpeedSelected: (Float) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        AssistChip(onClick = { open = true }, label = { Text("${speed}x") })
+        Text(
+            "${speed}x",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clickable { open = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+        )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { s ->
                 DropdownMenuItem(
@@ -324,7 +355,9 @@ private fun SpeedChip(speed: Float, onSpeedSelected: (Float) -> Unit) {
 private fun SleepTimerChip(onSelected: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Default.Bedtime, "취침 타이머") }
+        IconButton(onClick = { open = true }, modifier = Modifier.size(30.dp)) {
+            Icon(Icons.Default.Bedtime, "취침 타이머", modifier = Modifier.size(16.dp))
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("끔") }, onClick = { onSelected(0); open = false })
             listOf(15, 30, 60).forEach { min ->
