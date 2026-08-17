@@ -148,6 +148,14 @@ class PlaybackService : MediaSessionService() {
                         retryable = e is ExtractException.Network || e is ExtractException.RateLimited,
                     ),
                 )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 라이브러리 내부의 예상 밖 오류(NoSuchMethodError 등)로 앱이 죽지 않게 방어
+                android.util.Log.e("PlaybackService", "unexpected resolve failure", e)
+                stateHolder.setError(
+                    PlaybackError(item.videoId, "재생 정보를 가져오지 못했어요 (앱 업데이트가 필요할 수 있음)", retryable = false),
+                )
             } finally {
                 stateHolder.setResolving(false)
             }

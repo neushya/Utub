@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.utub"
-        minSdk = 29
+        minSdk = 28 // 갤럭시 S8+(Android 9) 실기기 지원 위해 29→28 하향 (2026-08-17)
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0-mvp"
@@ -31,7 +31,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = false
+        // NewPipeExtractor가 Java 10+ API(URLDecoder.decode(Charset) 등)를 사용 —
+        // 구형 Android(9 등)에서 NoSuchMethodError 방지 (통합테스트 IT-MVP-01 버그 수정)
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -51,6 +53,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)

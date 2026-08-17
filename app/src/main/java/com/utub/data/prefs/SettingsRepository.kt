@@ -21,6 +21,7 @@ data class UTubSettings(
     val clipboardDetect: Boolean = true,
     val onboardingDone: Boolean = false,
     val sleepTimerMinutes: Int = 0, // 0 = 끔, -1 = 현재 영상 끝까지
+    val contentCountry: String = "AUTO", // 피드/검색 노출 국가. AUTO = 기기 설정 따름
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "utub_settings")
@@ -34,6 +35,7 @@ class SettingsRepository(private val context: Context) {
         val CLIPBOARD_DETECT = booleanPreferencesKey("clipboard_detect")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val SLEEP_TIMER_MIN = intPreferencesKey("sleep_timer_minutes")
+        val CONTENT_COUNTRY = stringPreferencesKey("content_country")
     }
 
     val settings: Flow<UTubSettings> = context.dataStore.data.map { p ->
@@ -45,6 +47,7 @@ class SettingsRepository(private val context: Context) {
             clipboardDetect = p[Keys.CLIPBOARD_DETECT] ?: true,
             onboardingDone = p[Keys.ONBOARDING_DONE] ?: false,
             sleepTimerMinutes = p[Keys.SLEEP_TIMER_MIN] ?: 0,
+            contentCountry = p[Keys.CONTENT_COUNTRY] ?: "AUTO",
         )
     }
 
@@ -65,4 +68,7 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSleepTimerMinutes(minutes: Int) =
         context.dataStore.edit { it[Keys.SLEEP_TIMER_MIN] = minutes }
+
+    suspend fun setContentCountry(countryCode: String) =
+        context.dataStore.edit { it[Keys.CONTENT_COUNTRY] = countryCode }
 }

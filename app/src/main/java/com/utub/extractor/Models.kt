@@ -53,4 +53,9 @@ interface StreamExtractor {
     suspend fun resolveStreams(videoId: String): ResolvedStreams
     suspend fun search(query: String): List<VideoSummary>
     suspend fun suggest(query: String): List<String>
+    /** 비로그인 홈 피드: 인기/급상승 (SCR-100) */
+    suspend fun trending(): List<VideoSummary>
+
+    /** 피드/검색 노출 국가 변경. null이면 기기 로캘. 변경 시 캐시 초기화 */
+    fun setContentCountry(countryCode: String?)
 }

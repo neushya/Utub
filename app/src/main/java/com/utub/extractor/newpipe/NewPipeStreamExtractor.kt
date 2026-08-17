@@ -19,6 +19,8 @@ import org.schabi.newpipe.extractor.exceptions.GeographicRestrictionException
 import org.schabi.newpipe.extractor.exceptions.PaidContentException
 import org.schabi.newpipe.extractor.exceptions.PrivateContentException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
+import org.schabi.newpipe.extractor.localization.ContentCountry
+import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
@@ -38,10 +40,34 @@ class NewPipeStreamExtractor(
 
     private val initialized = AtomicBoolean(false)
 
+    @Volatile
+    private var overrideCountry: String? = null
+
     private fun ensureInit() {
         if (initialized.compareAndSet(false, true)) {
-            NewPipe.init(downloader)
+            applyLocalization()
         }
+    }
+
+    /** 설정의 콘텐츠 국가 반영 (AUTO/null = 기기 로캘) — 통합테스트 피드백 반영 */
+    override fun setContentCountry(countryCode: String?) {
+        val normalized = countryCode?.takeIf { it.isNotBlank() && it != "AUTO" }
+        if (normalized == overrideCountry && initialized.get()) return
+        overrideCountry = normalized
+        if (initialized.get()) {
+            applyLocalization()
+            cache.clear() // 국가가 바뀌면 연관 영상 등도 달라지므로 초기화
+        }
+    }
+
+    private fun applyLocalization() {
+        val locale = java.util.Locale.getDefault()
+        val country = overrideCountry ?: locale.country.ifEmpty { "KR" }
+        NewPipe.init(
+            downloader,
+            Localization(locale.language.ifEmpty { "ko" }, country),
+            ContentCountry(country),
+        )
     }
 
     override suspend fun resolveStreams(videoId: String): ResolvedStreams {
@@ -97,6 +123,17 @@ class NewPipeStreamExtractor(
         ensureInit()
         rateLimiter.execute {
             mapErrors { ServiceList.YouTube.suggestionExtractor.suggestionList(query) }
+        }
+    }
+
+    override suspend fun trending(): List<VideoSummary> = withContext(Dispatchers.IO) {
+        ensureInit()
+        rateLimiter.execute {
+            mapErrors {
+                val kiosk = ServiceList.YouTube.kioskList.defaultKioskExtractor
+                kiosk.fetchPage()
+                kiosk.initialPage.items.filterIsInstance<StreamInfoItem>().map { it.toSummary() }
+            }
         }
     }
 

@@ -14,22 +14,100 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** SCR-010 간이 홈: 최근 재생 + 클립보드 링크 감지 (TC-UI-02/03/04) */
+/** 홈 카테고리 칩 → 피드 소스 매핑. 전체=인기 급상승, 나머지=검색 기반 (로그인 없는 대안) */
+enum class HomeCategory(val label: String, val query: String?) {
+    ALL("전체", null),
+    MUSIC("음악", "최신 인기 음악"),
+    GAME("게임", "인기 게임 영상"),
+    NEWS("뉴스", "오늘 뉴스"),
+    SPORTS("스포츠", "스포츠 하이라이트"),
+    MOVIE("영화", "영화 리뷰"),
+}
+
+/** SCR-100 홈 피드 (1차로 당김, 2026-08-17 사용자 결정) + 클립보드 링크 감지 */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     recentPlayDao: RecentPlayDao,
+    private val extractor: com.utub.extractor.StreamExtractor,
     private val settingsRepository: SettingsRepository,
     private val stateHolder: PlayerStateHolder,
     private val playerConnection: PlayerConnection,
 ) : ViewModel() {
 
-    val recentPlays: StateFlow<List<RecentPlayEntity>> = recentPlayDao.observeRecent(20)
+    val recentPlays: StateFlow<List<RecentPlayEntity>> = recentPlayDao.observeRecent(50)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    sealed class FeedState {
+        object Loading : FeedState()
+        data class Loaded(val items: List<com.utub.extractor.VideoSummary>) : FeedState()
+        data class Error(val message: String) : FeedState()
+    }
+
+    private val _category = MutableStateFlow(HomeCategory.ALL)
+    val category: StateFlow<HomeCategory> = _category.asStateFlow()
+
+    private val _feed = MutableStateFlow<FeedState>(FeedState.Loading)
+    val feed: StateFlow<FeedState> = _feed.asStateFlow()
+
+    init {
+        // 콘텐츠 국가 설정을 추출 엔진에 반영하고, 바뀌면 피드 재로드 (첫 방출 시 최초 로드 겸함)
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.contentCountry }
+                .distinctUntilChanged()
+                .collect { country ->
+                    extractor.setContentCountry(country)
+                    loadFeed()
+                }
+        }
+    }
+
+    fun selectCategory(category: HomeCategory) {
+        if (_category.value == category) return
+        _category.value = category
+        loadFeed()
+    }
+
+    fun loadFeed() {
+        _feed.value = FeedState.Loading
+        viewModelScope.launch {
+            _feed.value = try {
+                val q = _category.value.query
+                val items = if (q == null) extractor.trending() else extractor.search(q)
+                FeedState.Loaded(items)
+            } catch (e: Exception) {
+                FeedState.Error(
+                    when (e) {
+                        is com.utub.extractor.ExtractException.Network -> "네트워크 연결을 확인해 주세요"
+                        is com.utub.extractor.ExtractException.RateLimited -> "요청이 많아요. 잠시 후 다시 시도해 주세요"
+                        else -> "피드를 불러오지 못했어요"
+                    },
+                )
+            }
+        }
+    }
+
+    fun playVideo(video: com.utub.extractor.VideoSummary) {
+        stateHolder.queue.playNow(
+            QueueManager.Item(video.videoId, video.title, video.channelName, video.thumbnailUrl, video.durationMs),
+        )
+        playerConnection.connect()
+    }
+
+    fun playNext(video: com.utub.extractor.VideoSummary) = stateHolder.queue.playNext(
+        QueueManager.Item(video.videoId, video.title, video.channelName, video.thumbnailUrl, video.durationMs),
+    )
+
+    fun addToQueue(video: com.utub.extractor.VideoSummary) = stateHolder.queue.addToQueue(
+        QueueManager.Item(video.videoId, video.title, video.channelName, video.thumbnailUrl, video.durationMs),
+    )
 
     sealed class ClipboardState {
         object None : ClipboardState()

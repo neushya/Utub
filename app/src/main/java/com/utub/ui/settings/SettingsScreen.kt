@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,7 +50,22 @@ class SettingsViewModel @Inject constructor(
     fun setAutoplayRelated(v: Boolean) = viewModelScope.launch { repository.setAutoplayRelated(v) }
     fun setDefaultAudioMode(v: Boolean) = viewModelScope.launch { repository.setDefaultAudioMode(v) }
     fun setClipboardDetect(v: Boolean) = viewModelScope.launch { repository.setClipboardDetect(v) }
+    fun setContentCountry(code: String) = viewModelScope.launch { repository.setContentCountry(code) }
 }
+
+/** 콘텐츠 국가 선택지 (사용자 요청, 2026-08-17) */
+val CONTENT_COUNTRIES = listOf(
+    "AUTO" to "자동 (기기 설정)",
+    "KR" to "한국",
+    "US" to "미국",
+    "JP" to "일본",
+    "TW" to "대만",
+    "GB" to "영국",
+    "DE" to "독일",
+    "FR" to "프랑스",
+    "VN" to "베트남",
+    "ID" to "인도네시아",
+)
 
 /** SCR-700 설정 최소판 (docs/03): 백그라운드 재생 모드·자동재생·기본 모드·권한 상태 */
 @Composable
@@ -101,6 +117,14 @@ fun SettingsScreen(
             checked = settings.clipboardDetect, onChange = viewModel::setClipboardDetect,
         )
 
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        // 콘텐츠 국가 (홈 피드·검색 노출 기준)
+        CountryPickerRow(
+            current = settings.contentCountry,
+            onSelect = viewModel::setContentCountry,
+        )
+
         SectionTitle("권한")
         Row(
             modifier = Modifier
@@ -126,6 +150,40 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),
         )
+    }
+}
+
+@Composable
+private fun CountryPickerRow(current: String, onSelect: (String) -> Unit) {
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val currentLabel = CONTENT_COUNTRIES.firstOrNull { it.first == current }?.second ?: current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { open = true }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("콘텐츠 국가", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "홈 인기 피드와 검색 노출 기준: $currentLabel",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        androidx.compose.foundation.layout.Box {
+            Text(currentLabel, color = MaterialTheme.colorScheme.primary)
+            androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                CONTENT_COUNTRIES.forEach { (code, label) ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = { onSelect(code); open = false },
+                    )
+                }
+            }
+        }
     }
 }
 

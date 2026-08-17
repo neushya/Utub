@@ -141,6 +141,85 @@ fun VideoCard(
     }
 }
 
+/** 유튜브 홈 스타일 대형 카드: 전체폭 썸네일 + 아래 제목·채널 (SCR-100) */
+@Composable
+fun BigVideoCard(
+    title: String,
+    channelName: String,
+    thumbnailUrl: String?,
+    durationMs: Long,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
+            if (durationMs > 0) {
+                Text(
+                    text = formatDuration(durationMs),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = listOfNotNull(channelName.ifBlank { null }, subtitle).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (onPlayNext != null || onAddToQueue != null) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "더보기")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        onPlayNext?.let {
+                            DropdownMenuItem(text = { Text("다음에 재생") }, onClick = { it(); menuOpen = false })
+                        }
+                        onAddToQueue?.let {
+                            DropdownMenuItem(text = { Text("대기열에 추가") }, onClick = { it(); menuOpen = false })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** EmptyState (docs/03 2절) */
 @Composable
 fun EmptyState(message: String, modifier: Modifier = Modifier) {

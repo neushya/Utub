@@ -4,11 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Subscriptions
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -87,6 +99,8 @@ private fun UTubApp(
         else -> "home"
     }
 
+    val tabRoutes = listOf("home", "subscriptions", "library")
+
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             NavHost(
@@ -110,6 +124,8 @@ private fun UTubApp(
                         onSettingsClick = { navController.navigate("settings") },
                     )
                 }
+                composable("subscriptions") { SubscriptionsPlaceholder() }
+                composable("library") { com.utub.ui.library.LibraryScreen() }
                 composable("search") {
                     SearchScreen(
                         onBack = { navController.popBackStack() },
@@ -138,6 +154,41 @@ private fun UTubApp(
                     onExpand = { navController.navigate("player") },
                 )
             }
+
+            // 하단 3탭 (유튜브 앱과 동일 구성 — docs/02 1절)
+            if (currentRoute in tabRoutes) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = currentRoute == "home",
+                        onClick = { navController.navigate("home") { popUpTo("home"); launchSingleTop = true } },
+                        icon = { Icon(Icons.Default.Home, "홈") },
+                        label = { Text("홈") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "subscriptions",
+                        onClick = { navController.navigate("subscriptions") { popUpTo("home"); launchSingleTop = true } },
+                        icon = { Icon(Icons.Default.Subscriptions, "구독") },
+                        label = { Text("구독") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "library",
+                        onClick = { navController.navigate("library") { popUpTo("home"); launchSingleTop = true } },
+                        icon = { Icon(Icons.Default.VideoLibrary, "보관함") },
+                        label = { Text("보관함") },
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun SubscriptionsPlaceholder() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            "구독 기능은 2차 업데이트에서 제공돼요\n(채널을 앱에 등록하면 새 영상을 모아 보여줍니다)",
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
