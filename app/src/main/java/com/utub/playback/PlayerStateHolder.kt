@@ -24,6 +24,14 @@ class PlayerStateHolder @Inject constructor() {
     private val _isResolving = MutableStateFlow(false)
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
 
+    /** 현재 영상의 연관영상 목록 (네이티브 상세화면용, 방식 B) */
+    private val _related = MutableStateFlow<List<com.utub.extractor.VideoSummary>>(emptyList())
+    val related: StateFlow<List<com.utub.extractor.VideoSummary>> = _related.asStateFlow()
+
+    fun setRelated(items: List<com.utub.extractor.VideoSummary>) {
+        _related.value = items
+    }
+
     fun setAudioOnly(enabled: Boolean) {
         _audioOnlyMode.value = enabled
     }

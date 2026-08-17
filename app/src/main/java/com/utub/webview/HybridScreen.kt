@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,23 +31,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.utub.ui.player.OverlayPlayer
 import com.utub.ui.player.PlayerViewModel
 
 /**
- * 하이브리드 홈 (사용자 확정 레이아웃):
- *  [우리 헤더: YouTube로고+검색] + [우리 플레이어(watch 시)] + [유튜브 웹(상세: 제목/댓글/연관)]
- *  웹의 플레이어(#player-container-id)와 상단바는 JS로 숨김 → 영상 중복·헤더 충돌 없음.
+ * 방식 B 홈: 유튜브 웹으로 탐색·검색만. 영상 클릭 시 [onVideoSelected]로
+ * 네이티브 플레이어 화면으로 전환한다 (웹 임베드 상세 없음 → 안정적).
  */
 @Composable
 fun HybridScreen(
     playerViewModel: PlayerViewModel,
-    onOpenFullPlayer: () -> Unit,
+    onVideoSelected: () -> Unit,
     webTarget: String,
     webNavTick: Int,
     viewModel: HybridWebViewModel = hiltViewModel(),
 ) {
-    val overlayVisible by viewModel.overlayVisible.collectAsState()
     val controller = remember { WebController() }
     var webCanGoBack by remember { mutableStateOf(false) }
 
@@ -56,15 +52,10 @@ fun HybridScreen(
         if (webNavTick > 0 && webTarget.isNotEmpty()) controller.loadUrl(webTarget)
     }
 
-    BackHandler(enabled = overlayVisible || webCanGoBack) {
-        when {
-            overlayVisible -> viewModel.closeOverlay()
-            webCanGoBack -> controller.goBack()
-        }
-    }
+    BackHandler(enabled = webCanGoBack) { controller.goBack() }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 우리 헤더: YouTube 로고 + 검색만 (벡터 아이콘, 상태바 패딩, 높이 48dp 고정)
+        // 우리 헤더: YouTube 로고 + 검색
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -80,12 +71,7 @@ fun HybridScreen(
                     .background(Color(0xFFFF0033), androidx.compose.foundation.shape.RoundedCornerShape(5.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.height(16.dp),
-                )
+                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.height(16.dp))
             }
             Spacer(Modifier.width(6.dp))
             Text(
@@ -100,27 +86,13 @@ fun HybridScreen(
             }
         }
 
-        // 우리 플레이어 (watch 진입 시)
-        if (overlayVisible) {
-            OverlayPlayer(
-                viewModel = playerViewModel,
-                onExpand = onOpenFullPlayer,
-                onClose = {
-                    playerViewModel.closePlayer()
-                    viewModel.closeOverlay()
-                    controller.goBack() // 웹도 상세→이전으로 함께 복귀
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        // 유튜브 웹 (플레이어·상단바 숨긴 상세/탐색)
         Box(modifier = Modifier.fillMaxSize()) {
             YouTubeWebView(
-                onWatch = viewModel::onWatchIntercepted,
-                onNav = viewModel::onWebNav,
+                onWatch = { url ->
+                    if (viewModel.onWatchIntercepted(url) != null) onVideoSelected()
+                },
+                onNav = { },
                 onCanGoBackChanged = { webCanGoBack = it },
-                overlayVisible = overlayVisible,
                 controller = controller,
                 modifier = Modifier.fillMaxSize(),
             )

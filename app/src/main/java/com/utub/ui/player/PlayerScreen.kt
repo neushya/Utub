@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -80,6 +81,7 @@ fun PlayerScreen(
     val shuffle by viewModel.shuffle.collectAsState()
     val queueItems by viewModel.queueItems.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
+    val related by viewModel.related.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 상단: 접기
@@ -263,6 +265,28 @@ fun PlayerScreen(
                     IconButton(onClick = { viewModel.removeAt(index) }) {
                         Icon(Icons.Default.Close, "삭제", modifier = Modifier.size(18.dp))
                     }
+                }
+            }
+
+            // 연관영상 (방식 B: 네이티브 상세화면)
+            if (related.isNotEmpty()) {
+                item {
+                    Text(
+                        "다음 동영상",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+                items(related, key = { "rel-" + it.videoId }) { video ->
+                    com.utub.ui.shared.VideoCard(
+                        title = video.title,
+                        channelName = video.channelName,
+                        thumbnailUrl = video.thumbnailUrl,
+                        durationMs = video.durationMs,
+                        subtitle = video.viewCount?.let { "조회수 " + com.utub.ui.home.formatViewCount(it) },
+                        onClick = { viewModel.playRelated(video) },
+                        onAddToQueue = { viewModel.addRelatedToQueue(video) },
+                    )
                 }
             }
         }

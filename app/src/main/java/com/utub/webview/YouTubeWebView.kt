@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import android.webkit.ConsoleMessage
-import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -36,7 +34,6 @@ fun YouTubeWebView(
     onWatch: (String) -> Unit,
     onNav: (String) -> Unit,
     onCanGoBackChanged: (Boolean) -> Unit,
-    overlayVisible: Boolean,
     controller: WebController,
     modifier: Modifier = Modifier,
 ) {
@@ -62,32 +59,21 @@ fun YouTubeWebView(
                     object {
                         @JavascriptInterface fun onWatchClicked(url: String) = post {
                             onWatch(url)
-                            applyOverlay(this@apply, true) // watch 진입 즉시 웹 플레이어 접기 (타이밍 지연 방지)
                             onCanGoBackChanged(canGoBack())
                         }
                         @JavascriptInterface fun onNav(url: String) = post {
                             onNav(url)
-                            applyOverlay(this@apply, false)
                             onCanGoBackChanged(canGoBack())
                         }
                     },
                     "UTub",
                 )
-                webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
-                        if (msg.message().startsWith("[UTubDiag]")) {
-                            android.util.Log.i("UTubWeb", msg.message())
-                        }
-                        return true
-                    }
-                }
                 webViewClient = object : WebViewClient() {
                     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                         view.evaluateJavascript(injectJs, null)
                     }
                     override fun onPageFinished(view: WebView, url: String?) {
                         view.evaluateJavascript(injectJs, null)
-                        applyOverlay(view, overlayVisible)
                         onCanGoBackChanged(view.canGoBack())
                     }
                     override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -95,12 +81,16 @@ fun YouTubeWebView(
                     }
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val u = request.url.toString()
-                        // 구글 로그인 페이지 차단 (webview UA 차단 + 비로그인 정책)
                         if (u.contains("accounts.google.com") || u.contains("/signin") || u.contains("ServiceLogin")) {
                             Toast.makeText(context, "로그인은 지원하지 않아요. 보관함(로컬)을 이용해 주세요", Toast.LENGTH_SHORT).show()
                             return true
                         }
-                        return false // watch·shorts·탐색 모두 웹에서 정상 로드 (소리 겹침은 JS가 차단)
+                        // watch URL은 네이티브로 가로챔 (웹은 상세로 이동하지 않음)
+                        if (YouTubeUrlClassifier.classify(u) is YouTubeUrlClassifier.Kind.Watch) {
+                            onWatch(u)
+                            return true
+                        }
+                        return false
                     }
                 }
                 controller.loadUrl = { target -> loadUrl(target) }
@@ -109,12 +99,7 @@ fun YouTubeWebView(
                 loadUrl(YT_HOME)
             }
         },
-        update = { webView -> applyOverlay(webView, overlayVisible) },
     )
-}
-
-private fun applyOverlay(webView: WebView, on: Boolean) {
-    webView.evaluateJavascript("window.__utubSetOverlay && window.__utubSetOverlay($on);", null)
 }
 
 private fun loadAsset(context: Context, name: String): String =

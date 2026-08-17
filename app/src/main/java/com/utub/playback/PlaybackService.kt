@@ -171,6 +171,9 @@ class PlaybackService : MediaSessionService() {
                 queue.updateMetaIfCurrent(
                     item.videoId, streams.title, streams.channelName, streams.thumbnailUrl, streams.durationMs,
                 )
+                if (queue.currentItem?.videoId == item.videoId) {
+                    stateHolder.setRelated(streams.related) // 방식 B: 상세화면 연관영상
+                }
                 val audioOnly = stateHolder.audioOnlyMode.value
                 val selection = repository.select(streams, audioOnly)
                 val metadata = MediaMetadata.Builder()

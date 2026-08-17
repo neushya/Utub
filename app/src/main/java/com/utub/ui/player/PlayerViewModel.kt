@@ -28,6 +28,7 @@ class PlayerViewModel @Inject constructor(
 
     val queueItems: StateFlow<List<QueueManager.Item>> = stateHolder.queue.items
     val currentIndex: StateFlow<Int> = stateHolder.queue.currentIndex
+    val related: StateFlow<List<com.utub.extractor.VideoSummary>> = stateHolder.related
     val audioOnlyMode: StateFlow<Boolean> = stateHolder.audioOnlyMode
     val error: StateFlow<PlaybackError?> = stateHolder.error
     val isResolving: StateFlow<Boolean> = stateHolder.isResolving
@@ -80,6 +81,19 @@ class PlayerViewModel @Inject constructor(
     fun seekBy(deltaMs: Long) = connection.seekBy(deltaMs)
     fun next() = stateHolder.queue.next()
     fun previous() = stateHolder.queue.previous()
+
+    /** 연관영상 재생 (네이티브 상세화면) */
+    fun playRelated(video: com.utub.extractor.VideoSummary) {
+        stateHolder.queue.playNow(
+            QueueManager.Item(video.videoId, video.title, video.channelName, video.thumbnailUrl, video.durationMs),
+        )
+    }
+
+    fun addRelatedToQueue(video: com.utub.extractor.VideoSummary) {
+        stateHolder.queue.addToQueue(
+            QueueManager.Item(video.videoId, video.title, video.channelName, video.thumbnailUrl, video.durationMs),
+        )
+    }
     fun jumpTo(index: Int) = stateHolder.queue.jumpTo(index)
     fun removeAt(index: Int) = stateHolder.queue.removeAt(index)
     fun move(from: Int, to: Int) = stateHolder.queue.move(from, to)

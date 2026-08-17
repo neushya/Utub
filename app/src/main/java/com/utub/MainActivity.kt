@@ -132,11 +132,11 @@ private fun UTubApp(
                         },
                     )
                 }
-                // 홈 = 유튜브 웹 하이브리드 (탐색/검색/상세는 웹, 재생은 우리 플레이어)
+                // 홈 = 유튜브 웹 탐색만. 영상 클릭 시 네이티브 플레이어 화면으로 전환 (방식 B)
                 composable("home") {
                     com.utub.webview.HybridScreen(
                         playerViewModel = playerViewModel,
-                        onOpenFullPlayer = { navController.navigate("player") },
+                        onVideoSelected = { navController.navigate("player") },
                         webTarget = webTarget,
                         webNavTick = webNavTick,
                     )
@@ -158,8 +158,8 @@ private fun UTubApp(
                 }
             }
 
-            // 미니플레이어: 플레이어/홈(오버레이) 아닐 때 + 재생 항목 있을 때 (SCR-310)
-            if (currentItem != null && currentRoute != "player" && currentRoute != "home" && currentRoute != "onboarding") {
+            // 미니플레이어: 플레이어 화면·온보딩이 아닐 때 + 재생 항목 있을 때 (SCR-310)
+            if (currentItem != null && currentRoute != "player" && currentRoute != "onboarding") {
                 MiniPlayerBar(
                     viewModel = playerViewModel,
                     onExpand = { navController.navigate("player") },
