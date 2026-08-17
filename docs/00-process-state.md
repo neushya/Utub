@@ -17,21 +17,23 @@
 
 ## 진행 중인 작업
 
-- 단위테스트케이스 48개 승인 완료 → docs/05 저장 → **구현 진행 중**
-- 완료: 개발환경 구축(JDK17·Android SDK 36·Gradle 8.14.2, 사용자 env 등록), Step 1(프로젝트 셋업), Step 2(extractor+파서+테스트), Step 3 로직(QueueManager/BackgroundPolicy/SleepTimer/PlaybackService), Step 4~6 UI(온보딩/홈/검색/플레이어/미니플레이어/설정), 데이터 레이어(Room/DataStore), 테스트 파일 12종
-- NewPipeExtractor v0.26.5 (2026-08-15 최신) 적용
-- 진행 중: 전체 단위테스트 실행·수정 사이클
+- **4단계(1차 개발) 완료** — 사용자에게 보고, 5단계 진입 승인 대기
+- 단위테스트 55개 전체 통과 (실패 0)
+- APK 빌드 성공: debug 72.4MB / release(R8) 6.6MB — `app/build/outputs/apk/`
+- git 커밋: 9a5fad2 (로컬 저장소, user.email sj.lee@fassto.com 로컬 설정)
 
 ## 다음 할 일
 
-1. 단위테스트 전체 통과 확인 → 실패 수정
-2. release APK 빌드 (R8 keep 규칙 검증)
-3. 사용자 보고 후 실기기 설치·통합테스트(5단계)로
+1. 사용자 승인 → 5단계: 통합테스트 계획 설계 (Claude·agy 교차) → docs/06
+2. 실기기(갤럭시) USB 연결 후 adb로 APK 설치 → 시나리오 실행 → docs/07
+3. 화면 꺼짐 1시간 연속 재생·One UI 딥슬립 검증 (MVP 완료 기준)
 
 ## 메모
 
-- 첫 빌드에서 hilt-navigation-compose 누락 1건 수정 완료
+- 개발 환경: JDK17·SDK36·Gradle 8.14.2 → %LOCALAPPDATA%\utub-devtools, 사용자 환경변수 등록됨
+- 수정 이력: hilt-navigation-compose 누락, Robolectric SDK 36 미지원→test에 sdk=34 고정, JUnit4 void 반환 1건
 - 통합테스트로 조정된 케이스: TC-EXT-01~04, TC-PB-09~13, TC-PB-15 (docs/05 기록)
+- 이 세션의 백그라운드 장기 작업이 반복 중단됨 → gradle은 포그라운드(≤10분) 실행 권장
 
 ## 참고
 
