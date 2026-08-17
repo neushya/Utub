@@ -139,6 +139,21 @@ class QueueManagerTest {
     }
 
     @Test
+    @DisplayName("D2: 추출 완료 메타 갱신은 현재 videoId 일치 시에만 적용")
+    fun updateMetaOnlyWhenCurrent() {
+        val qm = QueueManager()
+        qm.playNow(item("A").copy(title = "불러오는 중…"))
+        qm.updateMetaIfCurrent("A", "진짜 제목", "채널명", "thumb", 12345)
+        assertEquals("진짜 제목", qm.currentItem?.title)
+        assertEquals("채널명", qm.currentItem?.channelName)
+        assertEquals(12345, qm.currentItem?.durationMs)
+
+        // 다른 videoId로 오면 무시 (race 방지)
+        qm.updateMetaIfCurrent("Z", "엉뚱", "x", null, 999)
+        assertEquals("진짜 제목", qm.currentItem?.title)
+    }
+
+    @Test
     @DisplayName("중간 곡에서 종료 시 다음 곡으로 진행")
     fun advancesToNext() = runTest {
         val qm = managerWith(a, b, c, current = 0)

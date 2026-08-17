@@ -196,6 +196,22 @@ class QueueManager(
         }
     }
 
+    /** 추출 완료 후 현재 아이템 메타 갱신 (D2). videoId 일치할 때만 — race 방지 */
+    fun updateMetaIfCurrent(videoId: String, title: String, channelName: String, thumbnailUrl: String?, durationMs: Long) {
+        val idx = _currentIndex.value
+        val list = _items.value
+        val cur = list.getOrNull(idx) ?: return
+        if (cur.videoId != videoId) return
+        _items.value = list.toMutableList().also {
+            it[idx] = cur.copy(
+                title = title.ifBlank { cur.title },
+                channelName = channelName.ifBlank { cur.channelName },
+                thumbnailUrl = thumbnailUrl ?: cur.thumbnailUrl,
+                durationMs = if (durationMs > 0) durationMs else cur.durationMs,
+            )
+        }
+    }
+
     /** 복원 (TC-PB-18) */
     fun restore(items: List<Item>, index: Int) {
         _items.value = items

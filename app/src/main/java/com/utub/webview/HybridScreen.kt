@@ -9,7 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.utub.ui.player.OverlayPlayer
@@ -17,7 +19,7 @@ import com.utub.ui.player.PlayerViewModel
 
 /**
  * 하이브리드 홈: 유튜브 웹(WebView) + watch 시 상단 네이티브 플레이어 오버레이 (방식 A).
- * @param webTarget 탭 버튼이 요청한 웹 이동 목적지(홈/Shorts). 바뀔 때마다 WebView가 이동.
+ * 웹은 상세페이지로 정상 이동(제목/댓글/연관영상), 웹 비디오는 JS가 차단.
  */
 @Composable
 fun HybridScreen(
@@ -28,20 +30,18 @@ fun HybridScreen(
     viewModel: HybridWebViewModel = hiltViewModel(),
 ) {
     val overlayVisible by viewModel.overlayVisible.collectAsState()
+    val controller = remember { WebController() }
+    var webCanGoBack by remember { mutableStateOf(false) }
 
-    val backState = remember { WebBackState() }
-    val navCommand = remember { WebNavCommand() }
-
-    // 탭 버튼이 요청한 목적지로 WebView 이동 (홈/Shorts 전환). tick으로 재클릭도 반영
     LaunchedEffect(webTarget, webNavTick) {
-        if (webNavTick > 0 && webTarget.isNotEmpty()) navCommand.loadUrl(webTarget)
+        if (webNavTick > 0 && webTarget.isNotEmpty()) controller.loadUrl(webTarget)
     }
 
-    // 뒤로가기: 오버레이 열려있으면 닫기 → 아니면 웹 히스토리 (IT-WV-04)
-    BackHandler(enabled = overlayVisible || backState.canGoBack()) {
+    // 뒤로가기: 오버레이 닫기 → 웹 히스토리 → (없으면 시스템 기본=앱 종료)
+    BackHandler(enabled = overlayVisible || webCanGoBack) {
         when {
             overlayVisible -> viewModel.closeOverlay()
-            backState.canGoBack() -> backState.goBack()
+            webCanGoBack -> controller.goBack()
         }
     }
 
@@ -61,17 +61,11 @@ fun HybridScreen(
             YouTubeWebView(
                 onWatch = viewModel::onWatchIntercepted,
                 onNav = viewModel::onWebNav,
+                onCanGoBackChanged = { webCanGoBack = it },
                 overlayVisible = overlayVisible,
-                registerBackHandler = { cgb, gb -> backState.canGoBack = cgb; backState.goBack = gb },
-                navCommand = navCommand,
+                controller = controller,
                 modifier = Modifier.fillMaxSize(),
             )
         }
     }
-}
-
-/** WebView 뒤로가기 콜백 보관 (compose delegate 회피) */
-private class WebBackState {
-    var canGoBack: () -> Boolean = { false }
-    var goBack: () -> Unit = {}
 }

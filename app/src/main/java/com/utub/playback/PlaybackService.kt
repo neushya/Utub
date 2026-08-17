@@ -19,10 +19,14 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.utub.data.prefs.BackgroundMode
 import com.utub.data.prefs.SettingsRepository
@@ -93,9 +97,44 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(playerListener)
 
+        // D4: 알림에 종료(X) 버튼 노출 + 일시정지 시 스와이프 삭제 허용
+        val stopButton = CommandButton.Builder()
+            .setDisplayName("종료")
+            .setIconResId(android.R.drawable.ic_menu_close_clear_cancel)
+            .setSessionCommand(SessionCommand(CMD_STOP_SERVICE, Bundle.EMPTY))
+            .build()
+
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(sessionCallback)
+            .setCustomLayout(ImmutableList.of(stopButton))
             .build()
+
+        val defaultProvider = DefaultMediaNotificationProvider.Builder(this).build()
+        setMediaNotificationProvider(
+            object : MediaNotification.Provider {
+                override fun createNotification(
+                    mediaSession: MediaSession,
+                    customLayout: ImmutableList<CommandButton>,
+                    actionFactory: MediaNotification.ActionFactory,
+                    onNotificationChangedCallback: MediaNotification.Provider.Callback,
+                ): MediaNotification {
+                    val n = defaultProvider.createNotification(
+                        mediaSession, customLayout, actionFactory, onNotificationChangedCallback,
+                    )
+                    // 일시정지 상태면 ongoing 플래그 해제 → 알림 스와이프 삭제 가능 (D4)
+                    if (!player.isPlaying) {
+                        n.notification.flags = n.notification.flags and android.app.Notification.FLAG_ONGOING_EVENT.inv()
+                    }
+                    return n
+                }
+
+                override fun handleCustomCommand(
+                    session: MediaSession,
+                    action: String,
+                    extras: Bundle,
+                ): Boolean = defaultProvider.handleCustomCommand(session, action, extras)
+            },
+        )
 
         sleepTimer = SleepTimerManager(
             scope = scope,
@@ -128,6 +167,10 @@ class PlaybackService : MediaSessionService() {
             stateHolder.setError(null)
             try {
                 val streams = repository.resolve(item.videoId)
+                // D2: 추출 완료 → 현재 아이템 제목/채널/썸네일/길이 실제값으로 갱신 (videoId 일치 시)
+                queue.updateMetaIfCurrent(
+                    item.videoId, streams.title, streams.channelName, streams.thumbnailUrl, streams.durationMs,
+                )
                 val audioOnly = stateHolder.audioOnlyMode.value
                 val selection = repository.select(streams, audioOnly)
                 val metadata = MediaMetadata.Builder()

@@ -3,80 +3,75 @@
   if (window.__utubInjected) return;
   window.__utubInjected = true;
 
-  var OVERLAY = false; // 상세(watch) 오버레이 활성 여부 — 네이티브가 setOverlay로 제어
+  var OVERLAY = false;
 
-  // ── 1) watch 링크 클릭 캡처링 (웹 재생 시작 전에 선점) ──────────────────
-  document.addEventListener('click', function (e) {
+  function isShorts(u) { return u.indexOf('/shorts/') !== -1; }
+  function isWatch(u) { return !isShorts(u) && (/[?&]v=/.test(u) || u.indexOf('youtu.be/') !== -1); }
+
+  // ── 1) 웹 비디오 항상 음소거·정지 (네이티브 재생과 소리 겹침 방지) ────────
+  //   watch 클릭을 막지 않고(웹은 상세로 정상 이동), 웹 비디오만 죽인다.
+  function killWebVideos() {
+    var vids = document.querySelectorAll('video');
+    for (var i = 0; i < vids.length; i++) {
+      try {
+        vids[i].muted = true;
+        vids[i].volume = 0;
+        vids[i].pause();
+      } catch (e) {}
+    }
+  }
+
+  // ── 2) 라우팅 감지 → 네이티브에 알림 (watch면 재생, 아니면 탐색) ─────────
+  function notify(u) {
     try {
-      var el = e.target;
-      while (el && el.tagName !== 'A') el = el.parentElement;
-      if (!el || !el.href) return;
-      var href = el.href;
-      if (href.indexOf('/shorts/') !== -1) return; // 쇼츠는 웹에 위임
-      if (/[?&]v=/.test(href) || href.indexOf('youtu.be/') !== -1) {
-        e.preventDefault();
-        e.stopPropagation();
-        UTub.onWatchClicked(href);
-      }
-    } catch (err) { /* noop */ }
-  }, true);
+      if (isWatch(u)) UTub.onWatchClicked(u);
+      else UTub.onNav(u);
+    } catch (e) {}
+  }
 
-  // ── 2) history.pushState/replaceState 후킹 (SPA 라우팅 폴백) ──────────
   function hookHistory(name) {
     var orig = history[name];
     history[name] = function () {
       var ret = orig.apply(this, arguments);
       try {
-        var url = arguments[2];
-        if (url) {
-          var abs = new URL(url, location.href).href;
-          if (abs.indexOf('/shorts/') === -1 && /[?&]v=/.test(abs)) {
-            UTub.onWatchClicked(abs);
-          } else {
-            UTub.onNav(abs);
-          }
-        }
-      } catch (err) { /* noop */ }
+        var url = arguments[2] ? new URL(arguments[2], location.href).href : location.href;
+        notify(url);
+      } catch (e) {}
       return ret;
     };
   }
   hookHistory('pushState');
   hookHistory('replaceState');
-  window.addEventListener('popstate', function () {
-    try { UTub.onNav(location.href); } catch (e) {}
-  });
+  window.addEventListener('popstate', function () { notify(location.href); });
 
-  // ── 3) 오버레이 모드: 웹 비디오 음소거·정지·숨김 ───────────────────────
-  function killWebVideos() {
-    if (!OVERLAY) return;
-    var vids = document.querySelectorAll('video');
-    for (var i = 0; i < vids.length; i++) {
-      try { vids[i].muted = true; vids[i].pause(); } catch (e) {}
-    }
-  }
+  // 최초 로드 시 현재 URL 통지
+  notify(location.href);
+
+  // DOM 변화마다 웹 비디오 차단 + 광고 정리
   var mo = new MutationObserver(function () { killWebVideos(); adBlockSweep(); });
   mo.observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(killWebVideos, 1000);
+  setInterval(killWebVideos, 800);
 
+  // ── 3) 오버레이 모드: 웹 상단 플레이어 영역 숨김 (빈 검은박스 제거) ────────
   var styleEl = null;
   window.__utubSetOverlay = function (on) {
     OVERLAY = !!on;
-    if (OVERLAY) {
-      if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.id = '__utub_overlay_style';
-        styleEl.textContent =
-          'ytm-player, #player, .html5-video-player, ytd-player { visibility:hidden !important; height:0 !important; }';
-        document.head.appendChild(styleEl);
-      }
-      killWebVideos();
-    } else if (styleEl) {
+    if (OVERLAY && !styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = '__utub_overlay_style';
+      // 상세페이지 웹 플레이어 영역만 접기 (제목/댓글/연관영상은 유지)
+      styleEl.textContent =
+        'ytm-player, .player-container, #player-container-id, ' +
+        '.ytm-player-bar-container, ytd-player { display:none !important; height:0 !important; }';
+      document.head.appendChild(styleEl);
+    } else if (!OVERLAY && styleEl) {
       styleEl.remove();
       styleEl = null;
     }
+    killWebVideos();
   };
 
-  // ── 4) 광고 최선-차단 (유튜브 변경 시 깨질 수 있음) ─────────────────────
+  // ── 4) 광고 최선-차단 ─────────────────────────────────────────────────
   function adBlockSweep() {
     try {
       var sels = ['ytm-promoted-video-renderer', 'ytm-companion-slot-renderer',
@@ -92,9 +87,7 @@
   // ── 5) 유튜브 웹 자체 하단 탭 숨기기 (우리 앱 탭만 노출) ─────────────────
   (function hideYtTabbar() {
     var st = document.createElement('style');
-    st.textContent =
-      'ytm-pivot-bar-renderer, .pivot-bar, ytm-mobile-topbar-renderer .topbar-menu-button-avatar-button { display:none !important; }' +
-      'ytm-app > #app > .page-container { padding-bottom:0 !important; }';
+    st.textContent = 'ytm-pivot-bar-renderer, .pivot-bar { display:none !important; }';
     (document.head || document.documentElement).appendChild(st);
   })();
 })();
