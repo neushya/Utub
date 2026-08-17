@@ -88,4 +88,13 @@
     } catch (e) {}
   }
   adBlockSweep();
+
+  // ── 5) 유튜브 웹 자체 하단 탭 숨기기 (우리 앱 탭만 노출) ─────────────────
+  (function hideYtTabbar() {
+    var st = document.createElement('style');
+    st.textContent =
+      'ytm-pivot-bar-renderer, .pivot-bar, ytm-mobile-topbar-renderer .topbar-menu-button-avatar-button { display:none !important; }' +
+      'ytm-app > #app > .page-container { padding-bottom:0 !important; }';
+    (document.head || document.documentElement).appendChild(st);
+  })();
 })();
