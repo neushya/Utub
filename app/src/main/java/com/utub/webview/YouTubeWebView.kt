@@ -62,10 +62,12 @@ fun YouTubeWebView(
                     object {
                         @JavascriptInterface fun onWatchClicked(url: String) = post {
                             onWatch(url)
+                            applyOverlay(this@apply, true) // watch 진입 즉시 웹 플레이어 접기 (타이밍 지연 방지)
                             onCanGoBackChanged(canGoBack())
                         }
                         @JavascriptInterface fun onNav(url: String) = post {
                             onNav(url)
+                            applyOverlay(this@apply, false)
                             onCanGoBackChanged(canGoBack())
                         }
                     },

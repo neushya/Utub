@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayCircleOutline
@@ -108,10 +110,11 @@ private fun UTubApp(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { innerPadding ->
-        // 상단 인셋만 콘텐츠에 적용. 하단 인셋은 NavigationBar가 자체 흡수 → 탭 바 아래 빈 공간 제거
+        // 상단은 상태바 인셋을 직접 적용(모든 화면 공통). 하단 인셋은 NavigationBar가 자체 흡수 → 탭 바 아래 빈 공간 제거
+        @Suppress("UNUSED_EXPRESSION") innerPadding
         Column(
             modifier = Modifier
-                .padding(top = innerPadding.calculateTopPadding())
+                .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars)
                 .fillMaxSize(),
         ) {
             NavHost(

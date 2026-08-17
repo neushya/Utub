@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,28 +64,34 @@ fun HybridScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 우리 헤더: YouTube 로고 + 검색만
+        // 우리 헤더: YouTube 로고 + 검색만 (벡터 아이콘, 상태바 패딩, 높이 48dp 고정)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .height(48.dp)
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .height(20.dp)
-                    .background(Color(0xFFFF0033), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                    .padding(horizontal = 4.dp),
+                    .width(30.dp)
+                    .height(21.dp)
+                    .background(Color(0xFFFF0033), androidx.compose.foundation.shape.RoundedCornerShape(5.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("▶", color = Color.White, fontSize = 12.sp)
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.height(16.dp),
+                )
             }
-            Spacer(Modifier.padding(2.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
                 "YouTube",
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
+                fontSize = 19.sp,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(Modifier.weight(1f))

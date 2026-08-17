@@ -1,31 +1,29 @@
 (function () {
   'use strict';
-  if (window.__utubInjected) return;
-  window.__utubInjected = true;
+  // 가드는 document 기준: 페이지 로드로 문서가 교체되면(window는 유지) 스타일·리스너가
+  // 함께 소멸하므로 반드시 재주입돼야 한다 (window 기준 가드가 CSS 미적용 결함의 원인이었음)
+  if (document.__utubInjected) return;
+  document.__utubInjected = true;
 
   var OVERLAY = false;
 
   function isShorts(u) { return u.indexOf('/shorts/') !== -1; }
   function isWatch(u) { return !isShorts(u) && (/[?&]v=/.test(u) || u.indexOf('youtu.be/') !== -1); }
 
-  // ── 1) 웹 비디오 재생 원천 차단 + 플레이어 영역 숨김 ────────────────────
-  //   유튜브 자동재생을 이벤트 레벨에서 막고, 비디오 요소 자체를 숨긴다.
+  // ── 1) 웹 비디오 재생 원천 차단 ───────────────────────────────────────
+  //   video 요소 '자체만' 음소거·정지·숨김. 조상 요소는 절대 건드리지 않는다
+  //   (과거: 조상 탐색이 BODY를 숨겨 홈/상세 전체가 흰 화면이 되는 치명 결함 유발).
   function tameVideo(v) {
     try {
       v.muted = true;
       v.volume = 0;
       v.autoplay = false;
       if (!v.paused) v.pause();
-      // 비디오 요소 자체를 항상 숨김 (플레이어 UI 컨테이너는 남지만 영상은 안 보임)
-      v.style.setProperty('display', 'none', 'important');
-      // 조상 중 첫 '큰 블록'(플레이어 컨테이너)도 접어 검은 박스 제거
-      var el = v.parentElement, hops = 0;
-      while (el && hops < 6) {
-        if (el.clientHeight > 150 && el.clientWidth > 200) {
-          el.style.setProperty('display', 'none', 'important');
-          break;
-        }
-        el = el.parentElement; hops++;
+      if (OVERLAY) {
+        // 오버레이(우리 플레이어) 표시 중에만 영상 픽셀 숨김. video 태그만!
+        v.style.setProperty('visibility', 'hidden', 'important');
+      } else {
+        v.style.removeProperty('visibility');
       }
     } catch (e) {}
   }
@@ -33,6 +31,16 @@
   function killWebVideos() {
     var vids = document.querySelectorAll('video');
     for (var i = 0; i < vids.length; i++) tameVideo(vids[i]);
+    restoreBodyIfHidden();
+  }
+
+  // 안전장치: BODY/HTML이 (과거 버그 등으로) 숨겨져 있으면 즉시 복구
+  function restoreBodyIfHidden() {
+    try {
+      var b = document.body, h = document.documentElement;
+      if (b && b.style.display === 'none') b.style.removeProperty('display');
+      if (h && h.style.display === 'none') h.style.removeProperty('display');
+    } catch (e) {}
   }
 
   // play 시도 즉시 차단 (유튜브가 재생을 재시도해도 매번 잡음)
@@ -43,51 +51,30 @@
     if (e.target && e.target.tagName === 'VIDEO') tameVideo(e.target);
   }, true);
 
-  // 진단: 실제 플레이어 DOM 구조를 콘솔로 출력 (네이티브 logcat에서 확인)
-  function diag(tag) {
-    try {
-      var v = document.querySelector('video');
-      if (!v) { console.log('[UTubDiag] ' + tag + ' no-video url=' + location.href); return; }
-      var chain = [];
-      var el = v;
-      for (var i = 0; i < 8 && el; i++) {
-        chain.push(el.tagName + (el.id ? '#' + el.id : '') +
-          (el.className ? '.' + String(el.className).trim().split(/\s+/).slice(0, 2).join('.') : '') +
-          '[' + el.clientWidth + 'x' + el.clientHeight + ']');
-        el = el.parentElement;
-      }
-      console.log('[UTubDiag] ' + tag + ' ' + chain.join(' < '));
-    } catch (e) { console.log('[UTubDiag] err ' + e); }
-  }
-  // 상세 콘텐츠(제목/댓글 영역) 위치 진단
-  function diagContent(tag) {
-    try {
-      var pc = document.querySelector('#player-container-id');
-      var next = pc && pc.nextElementSibling;
-      var body = document.body;
-      var kids = [];
-      if (body) for (var i = 0; i < body.children.length && i < 6; i++) {
-        var c = body.children[i];
-        kids.push(c.tagName + (c.id ? '#' + c.id : '') + '[' + c.clientWidth + 'x' + c.clientHeight + ']');
-      }
-      console.log('[UTubDiag] ' + tag + ' body-kids: ' + kids.join(', ') +
-        ' | pc.next=' + (next ? next.tagName + (next.id ? '#' + next.id : '') : 'none'));
-    } catch (e) { console.log('[UTubDiag] diagContent err ' + e); }
-  }
-
-  // watch 페이지 진입 시 플레이어 렌더 시간차 대응 위해 여러 번 진단
+  // watch 진입 시 웹 플레이어 접기를 시간차로 재적용 (렌더 지연 대응)
   window.__utubDiagWatch = function () {
-    diag('t500'); setTimeout(function(){diag('t1500'); diagContent('c1500');}, 1000);
-    setTimeout(function(){diag('t3000'); diagContent('c3000');}, 2500);
+    if (window.__utubSetOverlay) {
+      window.__utubSetOverlay(true);
+      setTimeout(function () { window.__utubSetOverlay(true); }, 800);
+      setTimeout(function () { window.__utubSetOverlay(true); }, 2000);
+    }
   };
-  setTimeout(function(){diag('init');}, 1500);
 
   // ── 2) 라우팅 감지 → 네이티브에 알림 (watch면 재생, 아니면 탐색) ─────────
+  // 제스처 게이트: 실제 사용자 터치/클릭 3초 이내의 watch 전환만 재생으로 인정.
+  // (유튜브 홈 자동 미리보기가 pushState로 watch에 진입하는 것을 오인해 자동재생하는 결함 방지)
+  var lastGestureAt = 0;
+  document.addEventListener('touchstart', function () { lastGestureAt = Date.now(); }, true);
+  document.addEventListener('click', function () { lastGestureAt = Date.now(); }, true);
+
   function notify(u) {
     try {
       if (isWatch(u)) {
-        UTub.onWatchClicked(u);
-        if (window.__utubDiagWatch) window.__utubDiagWatch();
+        if (Date.now() - lastGestureAt < 3000) {
+          UTub.onWatchClicked(u);
+          if (window.__utubDiagWatch) window.__utubDiagWatch();
+        }
+        // 제스처 없는 자동 전환은 무시 (웹 미리보기는 음소거 상태로 놔둠)
       } else {
         UTub.onNav(u);
       }
@@ -109,8 +96,8 @@
   hookHistory('replaceState');
   window.addEventListener('popstate', function () { notify(location.href); });
 
-  // 최초 로드 시 현재 URL 통지
-  notify(location.href);
+  // 최초 로드 시 현재 URL 통지 (게이트 무관 — nav만)
+  try { if (isWatch(location.href) && window.__utubDiagWatch) { /* 초기 watch면 접기 */ window.__utubDiagWatch(); } else { UTub.onNav(location.href); } } catch (e) {}
 
   // DOM 변화마다 웹 비디오 차단 + 광고 정리
   var mo = new MutationObserver(function () { killWebVideos(); adBlockSweep(); });
@@ -124,16 +111,13 @@
     if (OVERLAY && !styleEl) {
       styleEl = document.createElement('style');
       styleEl.id = '__utub_overlay_style';
-      // 진단 확인 구조: #player-container-id(.sticky-player) 안에 영상. 이걸 '보이지 않게'만 하되
-      // display:none으로 레이아웃을 무너뜨리지 않도록 visibility+height 0 처리(아래 상세 콘텐츠 유지).
-      // sticky 고정도 해제해 아래 콘텐츠가 위로 올라오게 함.
+      // 진단 확인 구조: #player-container-id(.sticky-player)가 웹 플레이어의 최상위.
+      // 이 컨테이너 '하나만' 접는다 (BODY/HTML/기타 조상 절대 금지 — 흰 화면 재발 방지).
       styleEl.textContent =
-        '#player-container-id, .player-container.sticky-player { ' +
+        '#player-container-id { ' +
         '  position:static !important; height:0 !important; min-height:0 !important; max-height:0 !important; ' +
         '  visibility:hidden !important; overflow:hidden !important; } ' +
-        // watch 페이지가 sticky-player 클래스로 본문에 상단 패딩을 주는 것을 제거
         'html.sticky-player, body.sticky-player { padding-top:0 !important; } ' +
-        // 유튜브 모바일 상단바(로고/검색)는 우리가 그리므로 숨김
         'ytm-mobile-topbar-renderer, .mobile-topbar-header, header.mobile-topbar-header { display:none !important; }';
       document.head.appendChild(styleEl);
     } else if (!OVERLAY && styleEl) {
@@ -161,7 +145,9 @@
     var st = document.createElement('style');
     st.textContent =
       'ytm-pivot-bar-renderer, .pivot-bar, ftm-pivot-bar-renderer { display:none !important; } ' +
-      'ytm-mobile-topbar-renderer, .mobile-topbar-header, header.mobile-topbar-header { display:none !important; }';
+      // 상단바: 태그명이 자주 바뀌므로 ytm-app 내부의 header 태그를 통째로 숨김 (가장 견고)
+      'ytm-app header, ytm-mobile-topbar-renderer, .mobile-topbar-header, header.mobile-topbar-header ' +
+      '{ display:none !important; height:0 !important; }';
     (document.head || document.documentElement).appendChild(st);
   })();
 })();
