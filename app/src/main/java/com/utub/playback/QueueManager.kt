@@ -44,19 +44,15 @@ class QueueManager(
 
     val currentItem: Item? get() = _items.value.getOrNull(_currentIndex.value)
 
-    /** 빈 대기열/새 재생 시작 (TC-PB-01) — 대기열을 이 항목으로 시작 */
+    /**
+     * 새 영상 재생 시작 (TC-PB-01) — 대기열을 이 항목으로 '새로' 시작한다.
+     * (유튜브 앱과 동일: 홈/검색/연관영상에서 새 영상을 누르면 이전 대기열은 대체됨.
+     *  이전엔 재생 중일 때 현재 곡 뒤에 계속 삽입해 대기열이 무한정 쌓이는 문제가 있었음.)
+     *  대기열에 곡을 남기려면 playNext("다음에 재생") / addToQueue("대기열에 추가")를 사용.
+     */
     fun playNow(item: Item) {
-        val list = _items.value
-        val cur = _currentIndex.value
-        if (list.isEmpty() || cur !in list.indices) {
-            _items.value = listOf(item)
-            _currentIndex.value = 0
-        } else {
-            // 재생 중이면 현재 곡 다음에 삽입 후 그 곡으로 이동 (대기열 보존)
-            val next = cur + 1
-            _items.value = list.toMutableList().apply { add(next, item) }
-            _currentIndex.value = next
-        }
+        _items.value = listOf(item)
+        _currentIndex.value = 0
         signalPlay()
     }
 
