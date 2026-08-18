@@ -15,6 +15,7 @@
   document.addEventListener('click', function () { lastGestureAt = Date.now(); }, true);
 
   function notify(u) {
+    updateSearchMode();
     try {
       if (isWatch(u)) {
         if (Date.now() - lastGestureAt < 3000) {
@@ -73,13 +74,40 @@
   mo.observe(document.documentElement, { childList: true, subtree: true });
   adBlockSweep();
 
-  // 유튜브 웹 자체 하단 탭 + 상단바 숨기기 (헤더/탭은 우리가 그림)
+  // 유튜브 웹 자체 하단 탭 + 상단 로고/검색 숨기기 (헤더/탭은 우리가 그림 — 앱 내 브랜딩은 UTub만)
+  // 예외: /results(검색)에서는 유튜브 상단 검색창이 필요하므로 로고만 숨기고 헤더는 살린다.
+  function updateSearchMode() {
+    try {
+      document.documentElement.classList.toggle(
+        'utub-search', location.pathname.indexOf('/results') === 0);
+    } catch (e) {}
+  }
+  updateSearchMode();
+
   (function hideYtChrome() {
     var st = document.createElement('style');
     st.textContent =
-      'ytm-pivot-bar-renderer, .pivot-bar { display:none !important; } ' +
-      'ytm-app header, ytm-mobile-topbar-renderer, .mobile-topbar-header, header.mobile-topbar-header ' +
-      '{ display:none !important; height:0 !important; }';
+      // 항상 숨김: 하단 탭 + 유튜브 로고/워드마크 변형들 (구조 변경 대비 다중 셀렉터)
+      'ytm-pivot-bar-renderer, .pivot-bar, ' +
+      'ytm-home-logo, ytm-topbar-logo-renderer, #header-bar, .header-bar, ' +
+      '#logo, #logo-icon, .ytm-logo, ytd-masthead, ytd-topbar-logo-renderer, ' +
+      'a[aria-label="YouTube"], [id*="home-logo"], img[alt="YouTube"] ' +
+      '{ display:none !important; } ' +
+      // 검색 화면이 아닐 때만 숨김: 상단바/검색창 (검색 화면에서는 입력창이 필요)
+      'html:not(.utub-search) ytm-app header, html:not(.utub-search) ytm-mobile-topbar-renderer, ' +
+      'html:not(.utub-search) .mobile-topbar-header, html:not(.utub-search) header.mobile-topbar-header, ' +
+      // 비로그인 홈의 큰 로고 + 검색 프롬프트(검색하여 시작하기) 영역
+      'html:not(.utub-search) ytm-chip-cloud-renderer + *, ' +
+      'html:not(.utub-search) c3-search-box, html:not(.utub-search) ytm-searchbox, ' +
+      'html:not(.utub-search) [class*="topbar"], html:not(.utub-search) [class*="masthead"], ' +
+      'html:not(.utub-search) [class*="search-box"], html:not(.utub-search) [class*="searchbox"] ' +
+      '{ display:none !important; }';
     (document.head || document.documentElement).appendChild(st);
+    // SPA 리렌더로 스타일이 떨어지면 다시 붙이고, URL 변화에 맞춰 검색 모드 갱신
+    var keep = new MutationObserver(function () {
+      if (!st.isConnected) (document.head || document.documentElement).appendChild(st);
+      updateSearchMode();
+    });
+    keep.observe(document.documentElement, { childList: true, subtree: true });
   })();
 })();

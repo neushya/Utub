@@ -61,7 +61,7 @@ fun SearchScreen(
             TextField(
                 value = query,
                 onValueChange = viewModel::onQueryChange,
-                placeholder = { Text("유튜브 검색") },
+                placeholder = { Text("UTub 검색") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { viewModel.submitSearch() }),

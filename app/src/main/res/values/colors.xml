@@ -2,5 +2,6 @@
 <resources>
     <color name="utub_background">#0F0F0F</color>
     <color name="utub_accent">#FF0033</color>
-    <color name="ic_launcher_background">#12141C</color>
+    <!-- 앱 다크 배경과 동일 톤: 홀로그램 유리 로고가 도드라지도록 -->
+    <color name="ic_launcher_background">#0F0F0F</color>
 </resources>
