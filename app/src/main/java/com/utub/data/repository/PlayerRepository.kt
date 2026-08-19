@@ -47,12 +47,16 @@ class PlayerRepository @Inject constructor(
         val items = queueDao.getQueue()
         if (items.isEmpty()) return null
         val state = queueDao.getState()
-        return items.map {
+        val currentIndex = state?.currentIndex ?: 0
+        val positionMs = state?.positionMs ?: 0L
+        return items.mapIndexed { i, it ->
             QueueManager.Item(
                 videoId = it.videoId, title = it.title, channelName = it.channelName,
                 thumbnailUrl = it.thumbnailUrl, durationMs = it.durationMs,
+                // 현재 항목에만 이어보기 위치 부여 — resolveAndPlay가 startMs를 시작 위치로 읽는다 (TC-PB-18)
+                startMs = if (i == currentIndex) positionMs else 0L,
             )
-        } to ((state?.currentIndex ?: 0) to (state?.positionMs ?: 0L))
+        } to (currentIndex to positionMs)
     }
 
     /** 최근 재생 기록 (TC-DAT-03/04/07: 95% 이상 시청 시 완료 처리, 상한 100개) */

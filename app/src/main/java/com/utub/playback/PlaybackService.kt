@@ -10,6 +10,7 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -65,6 +66,13 @@ class PlaybackService : MediaSessionService() {
     private var resolveJob: Job? = null
     private var persistJob: Job? = null
 
+    /**
+     * 플레이어 전용 볼륨 게인(0.0~1.0). 기기 볼륨과 별개.
+     * 취침 타이머의 페이드는 이 값에 "비율"을 곱해 적용하므로, 타이머 취소/만료 시
+     * 타이머가 보내는 1.0이 곧 사용자 볼륨 복원이 된다 (경합 없음).
+     */
+    private var userVolume = 1.0f
+
     private val queue get() = stateHolder.queue
 
     private val screenOffReceiver = object : BroadcastReceiver() {
@@ -104,7 +112,11 @@ class PlaybackService : MediaSessionService() {
             .setSessionCommand(SessionCommand(CMD_STOP_SERVICE, Bundle.EMPTY))
             .build()
 
-        mediaSession = MediaSession.Builder(this, player)
+        // 세션에는 raw ExoPlayer 대신 큐 연동 래퍼를 물린다.
+        // raw 플레이어의 타임라인은 항상 단일 곡이라, 세션이 직접 받으면
+        // ① 알림/블루투스 next·prev가 QueueManager에 도달하지 못하고
+        // ② 복원 직후(빈 타임라인) play가 prepare→ENDED로 이어져 다음 곡으로 잘못 진행된다.
+        mediaSession = MediaSession.Builder(this, QueueForwardingPlayer(player))
             .setCallback(sessionCallback)
             .setCustomLayout(ImmutableList.of(stopButton))
             .build()
@@ -138,9 +150,16 @@ class PlaybackService : MediaSessionService() {
 
         sleepTimer = SleepTimerManager(
             scope = scope,
-            setVolume = { player.volume = it },
+            // 타이머의 볼륨 출력을 "페이드 비율"로 해석해 사용자 볼륨에 곱한다
+            setVolume = { player.volume = it * userVolume },
             onExpired = { player.pause() },
         )
+
+        // 저장된 플레이어 볼륨 초기 적용 (재시작 후 유지)
+        scope.launch {
+            userVolume = settingsRepository.settings.first().playerVolume.coerceIn(0f, 1f)
+            player.volume = userVolume
+        }
 
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
@@ -253,7 +272,10 @@ class PlaybackService : MediaSessionService() {
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState == Player.STATE_ENDED) {
+            // mediaItemCount == 0 가드: 빈 타임라인에 prepare()가 들어오면(복원 직후 play 등)
+            // ExoPlayer가 즉시 ENDED로 전이하는데, 이를 "곡 종료"로 오인해 다음 곡으로
+            // 진행하면 안 된다 (실기기 검증에서 확인된 오동작)
+            if (playbackState == Player.STATE_ENDED && player.mediaItemCount > 0) {
                 onItemEnded()
             }
         }
@@ -284,6 +306,44 @@ class PlaybackService : MediaSessionService() {
                 player.pause()
             }
         }
+    }
+
+    // ── 세션용 큐 연동 플레이어 래퍼 ─────────────────────────────────────────
+
+    /**
+     * 알림·잠금화면·블루투스의 next/prev를 [QueueManager]로 연결하고,
+     * 복원 직후(빈 타임라인) 재생 요청을 현재 큐 항목의 재해석으로 돌린다.
+     * raw 플레이어 타임라인이 항상 1곡이라 스킵 커맨드가 기본적으로 비활성이므로,
+     * getAvailableCommands에서 명시적으로 광고해야 알림 버튼이 노출된다.
+     */
+    private inner class QueueForwardingPlayer(wrapped: Player) : ForwardingPlayer(wrapped) {
+        override fun play() {
+            if (mediaItemCount == 0) {
+                val idx = queue.currentIndex.value
+                if (idx >= 0) {
+                    queue.jumpTo(idx) // 재해석 트리거 — item.startMs(이어보기 위치)부터 재생
+                    return
+                }
+            }
+            super.play()
+        }
+
+        override fun seekToNext() = queue.next()
+        override fun seekToNextMediaItem() = queue.next()
+        override fun seekToPrevious() = queue.previous()
+        override fun seekToPreviousMediaItem() = queue.previous()
+
+        override fun getAvailableCommands(): Player.Commands =
+            super.getAvailableCommands().buildUpon()
+                .add(Player.COMMAND_SEEK_TO_NEXT)
+                .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .build()
+
+        // ForwardingPlayer 기본 구현은 래핑 대상에 위임해 위 오버라이드를 우회하므로 함께 재정의
+        override fun isCommandAvailable(command: Int): Boolean =
+            getAvailableCommands().contains(command)
     }
 
     // ── 백그라운드 정책 (TC-PB-16) ──────────────────────────────────────────
@@ -325,6 +385,7 @@ class PlaybackService : MediaSessionService() {
                 .add(SessionCommand(CMD_SET_AUDIO_ONLY, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SLEEP_TIMER, Bundle.EMPTY))
                 .add(SessionCommand(CMD_APP_BACKGROUND, Bundle.EMPTY))
+                .add(SessionCommand(CMD_SET_VOLUME, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -351,6 +412,10 @@ class PlaybackService : MediaSessionService() {
                     }
                 }
                 CMD_APP_BACKGROUND -> applyBackgroundPolicy()
+                CMD_SET_VOLUME -> {
+                    userVolume = args.getFloat(KEY_VOLUME, 1f).coerceIn(0f, 1f)
+                    player.volume = userVolume
+                }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -428,7 +493,9 @@ class PlaybackService : MediaSessionService() {
         const val CMD_SET_AUDIO_ONLY = "com.utub.SET_AUDIO_ONLY"
         const val CMD_SLEEP_TIMER = "com.utub.SLEEP_TIMER"
         const val CMD_APP_BACKGROUND = "com.utub.APP_BACKGROUND"
+        const val CMD_SET_VOLUME = "com.utub.SET_VOLUME"
         const val KEY_ENABLED = "enabled"
         const val KEY_MINUTES = "minutes"
+        const val KEY_VOLUME = "volume"
     }
 }

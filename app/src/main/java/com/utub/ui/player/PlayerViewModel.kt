@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -58,8 +59,20 @@ class PlayerViewModel @Inject constructor(
         settingsRepository.settings.collect { emit(it.sleepTimerMinutes) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /**
+     * 플레이어 전용 볼륨 — UI 슬라이더 위치(0.0~1.0).
+     * 실제 게인은 제곱 커브(지각 보정: 슬라이더 50% ≈ -12dB ≈ 체감 절반)로 변환하며,
+     * 변환은 이 클래스에서만 수행한다 (저장·전송은 게인, 표시는 위치 = sqrt(게인)).
+     */
+    private val _playerVolume = MutableStateFlow(1.0f)
+    val playerVolume: StateFlow<Float> = _playerVolume.asStateFlow()
+
     init {
         connection.connect()
+        viewModelScope.launch {
+            val gain = settingsRepository.settings.first().playerVolume.coerceIn(0f, 1f)
+            _playerVolume.value = kotlin.math.sqrt(gain)
+        }
         viewModelScope.launch {
             while (true) {
                 _positionMs.value = connection.positionMs
@@ -141,5 +154,18 @@ class PlayerViewModel @Inject constructor(
     fun setSleepTimer(minutes: Int) {
         viewModelScope.launch { settingsRepository.setSleepTimerMinutes(minutes) }
         connection.setSleepTimer(minutes)
+    }
+
+    /** 슬라이더 드래그 중 실시간 적용 (디스크 미기록) */
+    fun setPlayerVolume(position: Float) {
+        val pos = position.coerceIn(0f, 1f)
+        _playerVolume.value = pos
+        connection.setPlayerVolume(pos * pos) // 지각 보정 커브
+    }
+
+    /** 슬라이더 드래그 종료 시 1회 영속화 */
+    fun persistPlayerVolume() {
+        val pos = _playerVolume.value
+        viewModelScope.launch { settingsRepository.setPlayerVolume(pos * pos) }
     }
 }

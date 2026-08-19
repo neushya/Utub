@@ -1,5 +1,6 @@
 package com.utub
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,8 +22,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -51,6 +54,10 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var playerConnection: PlayerConnection
 
+    // launchMode=singleTask라 앱 실행 중 공유 수신은 onCreate가 아닌 onNewIntent로 온다.
+    // 세대 카운터로 신호해 연속 공유도 매번 플레이어 화면을 연다.
+    private var openPlayerTick by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -63,12 +70,19 @@ class MainActivity : ComponentActivity() {
                 UTubApp(
                     startOnboarding = !onboardingDone,
                     openPlayerOnStart = openPlayer,
+                    openPlayerTick = openPlayerTick,
                     onOnboardingDone = {
                         runBlocking { settingsRepository.setOnboardingDone() }
                     },
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) openPlayerTick++
     }
 
     override fun onStop() {
@@ -86,6 +100,7 @@ class MainActivity : ComponentActivity() {
 private fun UTubApp(
     startOnboarding: Boolean,
     openPlayerOnStart: Boolean,
+    openPlayerTick: Int,
     onOnboardingDone: () -> Unit,
 ) {
     val navController = rememberNavController()
@@ -93,6 +108,14 @@ private fun UTubApp(
     val currentItem by playerViewModel.currentItem.collectAsState()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
+    // 앱 실행 중 공유 수신(onNewIntent) → 플레이어 화면으로 전환.
+    // launchSingleTop: 이미 플레이어가 최상단이면 중복 적재하지 않음
+    LaunchedEffect(openPlayerTick) {
+        if (openPlayerTick > 0) {
+            navController.navigate("player") { launchSingleTop = true }
+        }
+    }
 
     // 홈 탭 웹뷰가 이동할 목적지 (홈/Shorts). 재클릭도 반영되도록 카운터를 접미
     var webTarget by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.utub.webview.YT_HOME) }
@@ -139,6 +162,8 @@ private fun UTubApp(
                         onVideoSelected = { navController.navigate("player") },
                         webTarget = webTarget,
                         webNavTick = webNavTick,
+                        // 로고 탭 = 유튜브 홈 (하단 홈 탭과 동일 경로 → 탭 하이라이트 동기화)
+                        onLogoClick = { webTarget = com.utub.webview.YT_HOME; webNavTick++ },
                     )
                 }
                 composable("library") { com.utub.ui.library.LibraryScreen() }
@@ -159,7 +184,10 @@ private fun UTubApp(
             }
 
             // 미니플레이어: 플레이어 화면·온보딩이 아닐 때 + 재생 항목 있을 때 (SCR-310)
-            if (currentItem != null && currentRoute != "player" && currentRoute != "onboarding") {
+            // 쇼츠 탭에서는 숨김 — 쇼츠 진행바(하단 수 px)와 미니플레이어가 인접해
+            // 손가락 시킹 드래그를 미니플레이어가 가로채는 문제 방지 (docs/09 ⑤)
+            val onShortsTab = currentRoute == "home" && webTarget == com.utub.webview.YT_SHORTS
+            if (currentItem != null && currentRoute != "player" && currentRoute != "onboarding" && !onShortsTab) {
                 MiniPlayerBar(
                     viewModel = playerViewModel,
                     onExpand = { navController.navigate("player") },

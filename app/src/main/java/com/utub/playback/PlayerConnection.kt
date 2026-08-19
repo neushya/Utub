@@ -87,6 +87,12 @@ class PlayerConnection @Inject constructor(
 
     fun notifyAppBackground() = sendCustomCommand(PlaybackService.CMD_APP_BACKGROUND, Bundle.EMPTY)
 
+    /** 플레이어 전용 볼륨 게인(0.0~1.0) — 기기 볼륨과 별개 */
+    fun setPlayerVolume(gain: Float) = sendCustomCommand(
+        PlaybackService.CMD_SET_VOLUME,
+        Bundle().apply { putFloat(PlaybackService.KEY_VOLUME, gain) },
+    )
+
     private fun sendCustomCommand(action: String, args: Bundle) {
         controller?.sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args)
     }

@@ -84,6 +84,7 @@ fun PlayerScreen(
     val queueItems by viewModel.queueItems.collectAsState()
     val currentIndex by viewModel.currentIndex.collectAsState()
     val related by viewModel.related.collectAsState()
+    val playerVolume by viewModel.playerVolume.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 상단: 접기 (컴팩트)
@@ -261,6 +262,11 @@ fun PlayerScreen(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            VolumeChip(
+                volume = playerVolume,
+                onVolumeChange = viewModel::setPlayerVolume,
+                onVolumeCommit = viewModel::persistPlayerVolume,
+            )
             SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
             SleepTimerChip(onSelected = viewModel::setSleepTimer)
         }

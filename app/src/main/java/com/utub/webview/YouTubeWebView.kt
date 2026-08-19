@@ -43,6 +43,10 @@ fun YouTubeWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
+            // debug 빌드에서만 chrome://inspect DOM 검사 허용 (유튜브 웹 개편 시 셀렉터 확인용)
+            if (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
             WebView(ctx).apply {
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)

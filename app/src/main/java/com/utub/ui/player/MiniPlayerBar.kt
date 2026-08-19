@@ -61,10 +61,13 @@ fun MiniPlayerBar(
                     .height(64.dp)
                     .clickable(onClick = onExpand)
                     .pointerInput(Unit) {
+                        // 종료 임계값을 dp로 지정 — px 고정(구 150px)은 고밀도 화면에서
+                        // 너무 민감해 오터치로 재생이 종료되는 문제가 있었음 (docs/09 ⑤ 보강)
+                        val closeThresholdPx = 72.dp.toPx()
                         detectHorizontalDragGestures(
                             onDragStart = { dragTotal = 0f },
                             onDragEnd = {
-                                if (abs(dragTotal) > 150) viewModel.closePlayer()
+                                if (abs(dragTotal) > closeThresholdPx) viewModel.closePlayer()
                             },
                         ) { _, dragAmount -> dragTotal += dragAmount }
                     },

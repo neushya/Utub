@@ -204,6 +204,9 @@ class QueueManager(
                 channelName = channelName.ifBlank { cur.channelName },
                 thumbnailUrl = thumbnailUrl ?: cur.thumbnailUrl,
                 durationMs = if (durationMs > 0) durationMs else cur.durationMs,
+                // 해석 완료 = 이어보기 시작 위치(startMs) 소비됨. 남겨두면 이후 jumpTo/재시도가
+                // 낡은 위치에서 시작한다. (resolveAndPlay의 기본 인자는 호출 시점에 이미 바인딩됨)
+                startMs = 0,
             )
         }
     }

@@ -1,9 +1,17 @@
 (function () {
   'use strict';
   // 방식 B: 유튜브 웹은 '탐색(홈/검색)'만 담당. 영상 클릭 시 videoId를 네이티브에 넘겨
-  // 우리 네이티브 상세화면으로 전환한다. 웹 플레이어를 숨기거나 겹치지 않으므로 안정적.
+  // 우리 네이티브 상세화면으로 전환한다.
+  //
+  // [숨김 최소화 원칙 — docs/09 결함1]
+  // 유튜브가 홈을 여러 변형(피드형/빈 홈형)으로 렌더하는데, 광범위 부분일치 셀렉터
+  // ([class*="topbar"] 등)는 변형에 따라 정당한 요소(검색창·로고)까지 숨겨
+  // "빈 화면" 결함을 만들었다. 원칙: 숨김이 실패하면 "그냥 보이는" 쪽으로만
+  // 열화되도록, 오폭 불가능한 좁은 대상(광고 컴포넌트명)과 구조 기반 탐지
+  // (하단 탭)만 사용한다. 로고/상단바/검색창은 숨기지 않는다.
   if (document.__utubInjected) return;
   document.__utubInjected = true;
+  window.__utubStage = 'init';
 
   function isShorts(u) { return u.indexOf('/shorts/') !== -1; }
   function isWatch(u) { return !isShorts(u) && (/[?&]v=/.test(u) || u.indexOf('youtu.be/') !== -1); }
@@ -15,7 +23,6 @@
   document.addEventListener('click', function () { lastGestureAt = Date.now(); }, true);
 
   function notify(u) {
-    updateSearchMode();
     try {
       if (isWatch(u)) {
         if (Date.now() - lastGestureAt < 3000) {
@@ -37,7 +44,7 @@
       if (isWatch(el.href)) {
         e.preventDefault();
         e.stopPropagation();
-        if (Date.now() - lastGestureAt < 3000 || true) UTub.onWatchClicked(el.href);
+        if (Date.now() - lastGestureAt < 3000) UTub.onWatchClicked(el.href);
       }
     } catch (err) {}
   }, true);
@@ -53,61 +60,106 @@
       return ret;
     };
   }
+  window.__utubStage = 'hooks';
   hookHistory('pushState');
   hookHistory('replaceState');
   window.addEventListener('popstate', function () { notify(location.href); });
 
   try { UTub.onNav(location.href); } catch (e) {}
 
-  // 광고 최선-차단 (탐색 화면 목록 광고)
+  // ── 광고 최선-차단 ──────────────────────────────────────────────────────
+  // 광고 전용 컴포넌트명만 사용 (오폭 불가). 깨져도 "광고가 보일 뿐" — 안전한 실패.
+  var AD_SELECTORS = ['ytm-promoted-video-renderer', 'ytm-companion-slot-renderer',
+    '.ad-container', 'ytm-promoted-sparkles-web-renderer', 'ytm-ad-slot-renderer'];
+
   function adBlockSweep() {
     try {
-      var sels = ['ytm-promoted-video-renderer', 'ytm-companion-slot-renderer',
-        '.ad-container', 'ytm-promoted-sparkles-web-renderer', 'ytm-ad-slot-renderer'];
-      for (var s = 0; s < sels.length; s++) {
-        var nodes = document.querySelectorAll(sels[s]);
+      for (var s = 0; s < AD_SELECTORS.length; s++) {
+        var nodes = document.querySelectorAll(AD_SELECTORS[s]);
         for (var i = 0; i < nodes.length; i++) nodes[i].style.display = 'none';
       }
     } catch (e) {}
   }
-  var mo = new MutationObserver(adBlockSweep);
-  mo.observe(document.documentElement, { childList: true, subtree: true });
-  adBlockSweep();
 
-  // 유튜브 웹 자체 하단 탭 + 상단 로고/검색 숨기기 (헤더/탭은 우리가 그림 — 앱 내 브랜딩은 UTub만)
-  // 예외: /results(검색)에서는 유튜브 상단 검색창이 필요하므로 로고만 숨기고 헤더는 살린다.
-  function updateSearchMode() {
+  // ── 유튜브 자체 하단 탭 숨김 (우리 하단 탭과 중복) ───────────────────────
+  // 클래스명 대신 구조로 탐지: "href='/shorts' 정확일치 링크"와 "href='/' 링크"를
+  // 함께 담은 컨테이너 = 하단 탭. 클래스 개편에 강하고, 못 찾으면 아무것도
+  // 안 숨김(탭이 2줄로 보일 뿐 — 안전한 실패). 구세대 셀렉터도 병행(무해).
+  var LEGACY_PIVOT = 'ytm-pivot-bar-renderer, .pivot-bar';
+
+  function hidePivotBar() {
     try {
-      document.documentElement.classList.toggle(
-        'utub-search', location.pathname.indexOf('/results') === 0);
+      var legacy = document.querySelectorAll(LEGACY_PIVOT);
+      for (var i = 0; i < legacy.length; i++) legacy[i].style.display = 'none';
+
+      // 1차: 링크 기반 — 하단 탭의 Shorts 링크(상대/절대 URL 모두 대응)에서
+      // 위로 올라가며 "홈 링크도 함께 가진" 가장 가까운 조상을 찾는다.
+      var shortsTab = document.querySelector('a[href="/shorts"], a[href$="m.youtube.com/shorts"]');
+      var node = shortsTab ? shortsTab.parentElement : null;
+      for (var depth = 0; node && depth < 8; depth++) {
+        if (node.querySelector('a[href="/"], a[href$="m.youtube.com/"]')) {
+          if (isBottomNavLike(node)) hideOnce(node);
+          node = null; // 검증 실패여도 상위로 더 올라가지 않음 (과대 숨김 방지)
+          break;
+        }
+        node = node.parentElement;
+      }
+
+      // 2차 폴백: 위치 기반 — 뷰포트 최하단 중앙 지점의 요소에서 시작해
+      // "바 형태" 컨테이너(전체폭·저높이·하단 밀착·탭 2개 이상)를 찾는다.
+      // 탭이 <a>가 아닌 마크업으로 바뀌어도 동작. 못 찾으면 아무것도 안 함.
+      var probe = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 20);
+      for (var d = 0; probe && d < 8; d++) {
+        if (isBottomNavLike(probe)) { hideOnce(probe); break; }
+        probe = probe.parentElement;
+      }
     } catch (e) {}
   }
-  updateSearchMode();
 
-  (function hideYtChrome() {
-    var st = document.createElement('style');
-    st.textContent =
-      // 항상 숨김: 하단 탭 + 유튜브 로고/워드마크 변형들 (구조 변경 대비 다중 셀렉터)
-      'ytm-pivot-bar-renderer, .pivot-bar, ' +
-      'ytm-home-logo, ytm-topbar-logo-renderer, #header-bar, .header-bar, ' +
-      '#logo, #logo-icon, .ytm-logo, ytd-masthead, ytd-topbar-logo-renderer, ' +
-      'a[aria-label="YouTube"], [id*="home-logo"], img[alt="YouTube"] ' +
-      '{ display:none !important; } ' +
-      // 검색 화면이 아닐 때만 숨김: 상단바/검색창 (검색 화면에서는 입력창이 필요)
-      'html:not(.utub-search) ytm-app header, html:not(.utub-search) ytm-mobile-topbar-renderer, ' +
-      'html:not(.utub-search) .mobile-topbar-header, html:not(.utub-search) header.mobile-topbar-header, ' +
-      // 비로그인 홈의 큰 로고 + 검색 프롬프트(검색하여 시작하기) 영역
-      'html:not(.utub-search) ytm-chip-cloud-renderer + *, ' +
-      'html:not(.utub-search) c3-search-box, html:not(.utub-search) ytm-searchbox, ' +
-      'html:not(.utub-search) [class*="topbar"], html:not(.utub-search) [class*="masthead"], ' +
-      'html:not(.utub-search) [class*="search-box"], html:not(.utub-search) [class*="searchbox"] ' +
-      '{ display:none !important; }';
-    (document.head || document.documentElement).appendChild(st);
-    // SPA 리렌더로 스타일이 떨어지면 다시 붙이고, URL 변화에 맞춰 검색 모드 갱신
-    var keep = new MutationObserver(function () {
-      if (!st.isConnected) (document.head || document.documentElement).appendChild(st);
-      updateSearchMode();
-    });
-    keep.observe(document.documentElement, { childList: true, subtree: true });
-  })();
+  function hideOnce(el) {
+    if (el && el.style.display !== 'none') el.style.display = 'none';
+  }
+
+  // 하단 탭 검증 — 하나라도 어긋나면 숨기지 않는다(못 숨기면 탭이 보일 뿐, 안전한 실패):
+  // ① 탭(링크/버튼/tab role)이 2~10개 ② 높이 40~200px ③ 뷰포트 폭 90% 이상
+  // ④ 하단 밀착(bottom이 뷰포트 하단 10px 이내) — 피드 카드/섹션 오탐 차단
+  function isBottomNavLike(el) {
+    try {
+      if (!el || el === document.body || el === document.documentElement) return false;
+      var tabs = el.querySelectorAll('a, button, [role="tab"]').length;
+      if (tabs < 2 || tabs > 10) return false;
+      var rect = el.getBoundingClientRect();
+      if (rect.height < 40 || rect.height >= 200) return false;
+      if (rect.width < window.innerWidth * 0.9) return false;
+      if (rect.bottom < window.innerHeight - 10) return false;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  window.__utubStage = 'fns';
+  function sweep() { window.__utubSweeps = (window.__utubSweeps || 0) + 1; adBlockSweep(); hidePivotBar(); }
+
+  // 변이 폭주(스크롤 중 다수 발화)를 250ms로 코얼레싱 — 마지막 변이 후에도 반드시 1회 실행
+  var sweepPending = false;
+  function scheduleSweep() {
+    if (sweepPending) return;
+    sweepPending = true;
+    setTimeout(function () { sweepPending = false; sweep(); }, 250);
+  }
+
+  // onPageStarted 주입은 documentElement가 아직 불안정할 수 있어 observe가
+  // 던질 수 있다 (실기기에서 이 지점 사망 확인). 실패 시 재시도하고,
+  // 옵저버와 무관하게 도는 주기 스위프를 보험으로 병행한다 (sweep은 멱등·저비용).
+  function startObserver() {
+    try {
+      var mo = new MutationObserver(scheduleSweep);
+      mo.observe(document.documentElement || document, { childList: true, subtree: true });
+      window.__utubStage = 'done';
+    } catch (e) {
+      setTimeout(startObserver, 300);
+    }
+  }
+  startObserver();
+  setInterval(sweep, 2500);
+  sweep();
 })();
