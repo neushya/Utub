@@ -4,7 +4,7 @@ package com.utub.share
  * 유튜브 URL/공유 텍스트 → videoId·시작시간 파싱 (TC-SHR-01~09)
  * 지원: youtu.be/ID, watch?v=ID, shorts/ID, m.youtube.com, music.youtube.com,
  *       t=45 / t=45s / t=1h2m3s, list=재생목록, 텍스트 본문 속 URL
- * 미지원: /live/ID (라이브 — 범위 제외 항목으로 안내)
+ * 라이브: /live/ID → Video로 재생 (2차 — HLS 지원 전환)
  */
 object YouTubeUrlParser {
 
@@ -53,7 +53,7 @@ object YouTubeUrlParser {
             host == "youtu.be" -> path.substringBefore('/')
             path.startsWith("shorts/") -> path.removePrefix("shorts/").substringBefore('/')
             path.startsWith("embed/") -> path.removePrefix("embed/").substringBefore('/')
-            path.startsWith("live/") -> return Result.LiveUnsupported
+            path.startsWith("live/") -> path.removePrefix("live/").substringBefore('/')
             path == "watch" || path.startsWith("watch") -> query["v"]
             path == "playlist" -> return listId?.let { Result.Playlist(it) } ?: Result.Invalid
             else -> null

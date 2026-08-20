@@ -25,6 +25,11 @@ class PlayerStateHolder @Inject constructor() {
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
 
     /** 현재 영상의 연관영상 목록 (네이티브 상세화면용, 방식 B) */
+    /** 현재 곡이 라이브 스트림인지 (시크/배속/기록 제외 등 UI 분기용) */
+    private val _isLiveStream = MutableStateFlow(false)
+    val isLiveStream: StateFlow<Boolean> = _isLiveStream.asStateFlow()
+    fun setLiveStream(live: Boolean) { _isLiveStream.value = live }
+
     /** 취침 타이머 상태 (기술부채 2 — 잔여시간 UI 표시용, 서비스가 중계) */
     private val _sleepTimerState = MutableStateFlow<SleepTimerManager.State>(SleepTimerManager.State.Off)
     val sleepTimerState: StateFlow<SleepTimerManager.State> = _sleepTimerState.asStateFlow()

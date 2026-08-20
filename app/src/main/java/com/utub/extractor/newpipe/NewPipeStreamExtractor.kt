@@ -77,9 +77,14 @@ class NewPipeStreamExtractor(
             val info = rateLimiter.execute {
                 mapErrors { StreamInfo.getInfo(ServiceList.YouTube, watchUrl(videoId)) }
             }
-            if (info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM) {
-                throw ExtractException.Unavailable(ExtractException.Unavailable.Reason.LIVE_UNSUPPORTED)
-            }
+            // 라이브 스트림: HLS 매니페스트로 재생 (2차 — 사용자 최우선 요청으로 지원 전환).
+            // 매니페스트 URL이 없을 때만 기존처럼 미지원 안내.
+            val isLive = info.streamType == StreamType.LIVE_STREAM ||
+                info.streamType == StreamType.AUDIO_LIVE_STREAM
+            val liveUrl = if (isLive) {
+                info.hlsUrl?.takeIf { it.isNotBlank() } ?: info.dashMpdUrl?.takeIf { it.isNotBlank() }
+                    ?: throw ExtractException.Unavailable(ExtractException.Unavailable.Reason.LIVE_UNSUPPORTED)
+            } else null
             val resolved = ResolvedStreams(
                 videoId = videoId,
                 title = info.name.orEmpty(),
@@ -100,6 +105,8 @@ class NewPipeStreamExtractor(
                     asr.content?.let { AudioTrack(it, asr.format?.mimeType, asr.averageBitrate) }
                 },
                 related = info.relatedItems.orEmpty().filterIsInstance<StreamInfoItem>().map { it.toSummary() },
+                isLive = isLive,
+                liveUrl = liveUrl,
             )
             cache.put(videoId, resolved)
             resolved

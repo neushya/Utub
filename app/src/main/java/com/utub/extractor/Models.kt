@@ -22,6 +22,9 @@ data class ResolvedStreams(
     val videoOnlyStreams: List<VideoTrack>,
     val audioStreams: List<AudioTrack>,
     val related: List<VideoSummary>,
+    /** 라이브 스트림 여부 — true면 [liveUrl](HLS 매니페스트)로 재생, 트랙 선택 우회 */
+    val isLive: Boolean = false,
+    val liveUrl: String? = null,
 )
 
 data class VideoTrack(

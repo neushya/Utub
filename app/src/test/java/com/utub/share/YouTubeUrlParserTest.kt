@@ -65,10 +65,10 @@ class YouTubeUrlParserTest {
     }
 
     @Test
-    @DisplayName("TC-SHR-09: /live/ URL → LiveUnsupported")
-    fun liveUnsupported() {
+    @DisplayName("TC-SHR-09(개정): /live/ URL → Video로 재생 (2차 라이브 HLS 지원 전환)")
+    fun liveUrlParsesAsVideo() {
         val r = YouTubeUrlParser.parse("https://www.youtube.com/live/abcDEF12345")
-        assertEquals(Result.LiveUnsupported, r)
+        assertEquals(Result.Video("abcDEF12345", 0), r)
     }
 
     @Test

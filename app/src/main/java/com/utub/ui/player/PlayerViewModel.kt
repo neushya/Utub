@@ -33,6 +33,7 @@ class PlayerViewModel @Inject constructor(
     val audioOnlyMode: StateFlow<Boolean> = stateHolder.audioOnlyMode
     val error: StateFlow<PlaybackError?> = stateHolder.error
     val isResolving: StateFlow<Boolean> = stateHolder.isResolving
+    val isLiveStream: StateFlow<Boolean> = stateHolder.isLiveStream
     val isPlaying: StateFlow<Boolean> = connection.isPlaying
     val isBuffering: StateFlow<Boolean> = connection.isBuffering
     val durationMs: StateFlow<Long> = connection.durationMs

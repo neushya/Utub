@@ -18,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.session.CommandButton
@@ -196,16 +197,32 @@ class PlaybackService : MediaSessionService() {
                 if (queue.currentItem?.videoId == item.videoId) {
                     stateHolder.setRelated(streams.related) // 방식 B: 상세화면 연관영상
                 }
-                val audioOnly = stateHolder.audioOnlyMode.value
-                val selection = repository.select(streams, audioOnly)
+                stateHolder.setLiveStream(streams.isLive)
                 val metadata = MediaMetadata.Builder()
                     .setTitle(streams.title)
                     .setArtist(streams.channelName)
                     .setArtworkUri(streams.thumbnailUrl?.let(android.net.Uri::parse))
                     .build()
 
-                val source = buildMediaSource(selection.videoUrl, selection.audioUrl, selection.mergeRequired, metadata, item.videoId)
-                player.setMediaSource(source, startPositionMs)
+                val source = if (streams.isLive && streams.liveUrl != null) {
+                    // 라이브: HLS 매니페스트 재생 — 트랙 선택(StreamSelector) 우회
+                    HlsMediaSource.Factory(mediaSourceFactory).createMediaSource(
+                        MediaItem.Builder()
+                            .setUri(streams.liveUrl)
+                            .setMediaId(item.videoId)
+                            .setMediaMetadata(metadata)
+                            .build(),
+                    )
+                } else {
+                    val audioOnly = stateHolder.audioOnlyMode.value
+                    val selection = repository.select(streams, audioOnly)
+                    buildMediaSource(selection.videoUrl, selection.audioUrl, selection.mergeRequired, metadata, item.videoId)
+                }
+                if (streams.isLive) {
+                    player.setMediaSource(source) // 라이브는 시작 위치 개념 없음 — 라이브 엣지에서 시작
+                } else {
+                    player.setMediaSource(source, startPositionMs)
+                }
                 player.prepare()
                 player.play()
             } catch (e: ExtractException) {
@@ -448,7 +465,8 @@ class PlaybackService : MediaSessionService() {
         val item = queue.currentItem ?: return
         val position = player.currentPosition
         scope.launch {
-            repository.recordPlayback(item, position)
+            // 라이브는 길이·이어보기 개념이 없어 시청기록(완료 판정)에서 제외
+            if (!stateHolder.isLiveStream.value) repository.recordPlayback(item, position)
             repository.persistQueue(queue.items.value, queue.currentIndex.value, position)
         }
     }
