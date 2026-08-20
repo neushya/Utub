@@ -2,10 +2,13 @@ package com.utub.di
 
 import android.content.Context
 import androidx.room.Room
+import com.utub.data.db.LikedDao
+import com.utub.data.db.PlaylistDao
 import com.utub.data.db.QueueDao
 import com.utub.data.db.RecentPlayDao
 import com.utub.data.db.SearchHistoryDao
 import com.utub.data.db.UTubDatabase
+import com.utub.data.db.WatchLaterDao
 import com.utub.data.prefs.SettingsRepository
 import com.utub.extractor.StreamExtractor
 import com.utub.extractor.newpipe.NewPipeStreamExtractor
@@ -32,6 +35,9 @@ object AppModule {
     @Provides fun provideQueueDao(db: UTubDatabase): QueueDao = db.queueDao()
     @Provides fun provideRecentPlayDao(db: UTubDatabase): RecentPlayDao = db.recentPlayDao()
     @Provides fun provideSearchHistoryDao(db: UTubDatabase): SearchHistoryDao = db.searchHistoryDao()
+    @Provides fun provideWatchLaterDao(db: UTubDatabase): WatchLaterDao = db.watchLaterDao()
+    @Provides fun provideLikedDao(db: UTubDatabase): LikedDao = db.likedDao()
+    @Provides fun providePlaylistDao(db: UTubDatabase): PlaylistDao = db.playlistDao()
 
     @Provides
     @Singleton

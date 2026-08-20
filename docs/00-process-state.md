@@ -66,6 +66,15 @@
 - **PIP (F-40)**: 어느 화면이든 재생 중 홈 이동 시 진입(자동으로 플레이어 화면 전환), 하단 ⏮⏯⏭, X=창닫기(백그라운드 유지), setCloseAction(완전종료)은 One UI 미반영이나 표준 대비 유지, **알림바 종료 시 PIP 죽은 창 자동 닫힘**(결함 수정), 백그라운드 청취 경로: 전원버튼/엣지 밀어넣기/오디오 모드
 - 실측 기록: One UI PIP 커스텀 액션 최대 3개, setCloseAction 미지원, PIP 창 터치는 앱에 미전달(시스템 소비)
 
+## v0.5.0 기록 (2026-08-20 저녁 — 2차 개발 1·2단계 + 라이브)
+
+- **2차 1단계 — 나중에 보기·좋아요 (F-24) + 삭제**: DB v1→v2 AutoMigration(실기기 데이터 보존 검증), 플레이어 상단 바 🕐/♥ 토글(LibraryActionsViewModel 신규 — PlayerViewModel 무수정), 보관함 3세그먼트 + 개별 X/"모두 지우기"(확인 다이얼로그)
+- **라이브 스트림 지원 (F-LIVE, 사용자 최우선)**: 기존 LIVE_UNSUPPORTED 차단 → 지원 전환. NewPipe hlsUrl 추출 → media3 HlsMediaSource(라이브 엣지 시작, StreamSelector 우회), /live/ URL 파싱, 시청기록 제외, 라이브 UI("🔴 실시간", 시크·±10초·배속·오디오전용 비활성). 실기기: 재생·백그라운드(화면 OFF에도 PLAYING) 검증 + **사용자 실사용 확인 완료**
+- **2차 2단계 — 로컬 재생목록**: DB v2→v3 AutoMigration(시청기록·대기열 보존 실기기 검증), FK CASCADE + 유니크 인덱스(중복 담기 방지), 플레이어 상단 ➕ → 저장 시트(토글·새 목록 생성), 보관함 [재생목록] 세그먼트(목록↔상세, ↑↓ 순서변경, 이름변경·삭제), 전체/셔플/곡 탭 재생 — 기존 QueueManager API만 사용(재생 코어 무수정)
+- 신규 파일 9: LibraryEntities/LibraryDaos/LibraryActionsViewModel/LibraryViewModel(재작성)/PlaylistEntities/PlaylistDaos/PlaylistViewModel/PlaylistSection/SaveToPlaylistSheet. 의존성 추가: media3-exoplayer-hls
+- 빌드 메모: kspDebug/kspRelease가 schemas/3.json 동시 기록 → 일시적 JSON 경합 1회(재빌드 해소, 코드 무관)
+- 단위테스트 64/64 유지 (TC-SHR-09 라이브 스펙 개정 포함)
+
 ## 다음 할 일 (다음 세션)
 
 1. 수동 통합테스트 잔여 항목 (docs/07 — 이어폰·전화·블루투스·백그라운드 모드) — **사용자 별도 진행 예정**

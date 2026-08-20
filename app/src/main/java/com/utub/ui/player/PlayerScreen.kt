@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
@@ -29,6 +30,9 @@ import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -93,6 +97,13 @@ fun PlayerScreen(
     val related by viewModel.related.collectAsState()
     val playerVolume by viewModel.playerVolume.collectAsState()
     val sleepTimer by viewModel.sleepTimerState.collectAsState()
+    val isLive by viewModel.isLiveStream.collectAsState()
+
+    // ── 재생목록에 저장 시트 (2차 2단계, A안) ──────────────────────────────
+    var showSaveSheet by remember { mutableStateOf(false) }
+    if (showSaveSheet) {
+        currentItem?.let { SaveToPlaylistSheet(item = it, onDismiss = { showSaveSheet = false }) }
+    }
 
     // ── 전체화면 (docs/09 ⑦) ────────────────────────────────────────────────
     val activity = LocalContext.current.findActivity()
@@ -127,6 +138,48 @@ fun PlayerScreen(
                 Icon(Icons.Default.KeyboardArrowDown, "접기")
             }
             Spacer(Modifier.weight(1f))
+            // 나중에 보기 · 좋아요 (F-24, 2차 1단계 — 상단 바 배치, 사용자 확정)
+            currentItem?.let { item ->
+                val libraryActions: LibraryActionsViewModel = hiltViewModel()
+                val isWatchLater by remember(item.videoId) { libraryActions.isWatchLater(item.videoId) }
+                    .collectAsState(initial = false)
+                val isLiked by remember(item.videoId) { libraryActions.isLiked(item.videoId) }
+                    .collectAsState(initial = false)
+                IconButton(
+                    onClick = { libraryActions.toggleWatchLater(item, isWatchLater) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        Icons.Default.WatchLater, "나중에 보기",
+                        modifier = Modifier.size(20.dp),
+                        tint = if (isWatchLater) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(
+                    onClick = { libraryActions.toggleLiked(item, isLiked) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        "좋아요",
+                        modifier = Modifier.size(20.dp),
+                        tint = if (isLiked) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // 재생목록에 저장 (2차 2단계, A안 — 사용자 확정)
+                IconButton(
+                    onClick = { showSaveSheet = true },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.PlaylistAdd, "재생목록에 저장",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             IconButton(onClick = { viewModel.closePlayer(); onCollapse() }, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.Close, "재생 종료")
             }
@@ -197,8 +250,9 @@ fun PlayerScreen(
                         .padding(horizontal = 20.dp, vertical = 4.dp),
                 ) {
                     Slider(
-                        value = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
-                        onValueChange = { f -> if (durationMs > 0) viewModel.seekTo((f * durationMs).toLong()) },
+                        value = if (isLive) 1f else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
+                        onValueChange = { f -> if (!isLive && durationMs > 0) viewModel.seekTo((f * durationMs).toLong()) },
+                        enabled = !isLive,
                         modifier = Modifier.height(14.dp),
                         thumb = {
                             Box(
@@ -232,7 +286,7 @@ fun PlayerScreen(
                         IconButton(onClick = viewModel::previous, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.SkipPrevious, "이전", tint = Color.White)
                         }
-                        IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Replay10, "10초 뒤로", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(42.dp)) {
@@ -241,7 +295,7 @@ fun PlayerScreen(
                                 if (isPlaying) "일시정지" else "재생",
                             )
                         }
-                        IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Forward10, "10초 앞으로", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         IconButton(onClick = viewModel::next, modifier = Modifier.size(36.dp)) {
@@ -249,7 +303,7 @@ fun PlayerScreen(
                         }
                         Spacer(Modifier.weight(1f))
                         Text(
-                            "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                            if (isLive) "🔴 실시간" else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
@@ -298,16 +352,18 @@ fun PlayerScreen(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                    if (isLive) "🔴 실시간" else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isLive) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Slider(
-                value = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
+                value = if (isLive) 1f else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
                 onValueChange = { fraction ->
-                    if (durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
+                    if (!isLive && durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
                 },
+                enabled = !isLive,
                 modifier = Modifier.height(14.dp),
                 thumb = {
                     Box(
@@ -348,7 +404,7 @@ fun PlayerScreen(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = viewModel::toggleAudioOnly, modifier = Modifier.size(30.dp)) {
+            IconButton(onClick = viewModel::toggleAudioOnly, enabled = !isLive, modifier = Modifier.size(30.dp)) {
                 Icon(
                     Icons.Default.Headphones, if (audioOnly) "오디오" else "비디오",
                     modifier = Modifier.size(17.dp),
@@ -358,7 +414,7 @@ fun PlayerScreen(
             IconButton(onClick = viewModel::previous, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.SkipPrevious, "이전", modifier = Modifier.size(20.dp))
             }
-            IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(30.dp)) {
+            IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(16.dp))
             }
             FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(38.dp)) {
@@ -368,7 +424,7 @@ fun PlayerScreen(
                     modifier = Modifier.size(20.dp),
                 )
             }
-            IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(30.dp)) {
+            IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(16.dp))
             }
             IconButton(onClick = viewModel::next, modifier = Modifier.size(30.dp)) {
@@ -396,7 +452,7 @@ fun PlayerScreen(
                 onVolumeChange = viewModel::setPlayerVolume,
                 onVolumeCommit = viewModel::persistPlayerVolume,
             )
-            SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
+            if (!isLive) SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
             SleepTimerChip(state = sleepTimer, onSelected = viewModel::setSleepTimer)
         }
 
