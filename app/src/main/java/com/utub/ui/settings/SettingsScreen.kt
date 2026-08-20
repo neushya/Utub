@@ -145,7 +145,7 @@ fun SettingsScreen(
 
         SectionTitle("정보")
         Text(
-            "UTub 0.3.0 · 개인용 빌드\nNewPipeExtractor 기반 · 유튜브 규격 변경 시 업데이트 필요할 수 있음",
+            "UTub 0.4.0 · 개인용 빌드\nNewPipeExtractor 기반 · 유튜브 규격 변경 시 업데이트 필요할 수 있음",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),

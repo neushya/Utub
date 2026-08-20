@@ -137,6 +137,81 @@
   }
 
   window.__utubStage = 'fns';
+  // ── 쇼츠 자체 스크러버 (B안 — docs/09 후속 개선) ─────────────────────────
+  // 유튜브 웹 쇼츠는 진행바가 수 px라 손가락 스크럽이 사실상 불가하고, 웹뷰에선
+  // 탭 일시정지도 동작하지 않는다. 하단 띠의 수평 드래그를 받아 <video>의
+  // currentTime을 직접 제어한다 — 표준 API라 유튜브 DOM 개편과 무관.
+  // 오터치 4중 게이트: ① /shorts 경로 ② 최하단 48px 띠에서 시작한 터치만
+  // ③ 수평 이동 12px 이상 + |가로| > |세로|×1.5 일 때만 시킹 모드 진입
+  //    (세로 우세면 즉시 양보 — 진입 전엔 preventDefault를 하지 않아
+  //     쇼츠 넘김 세로 스와이프에 완전 무간섭) ④ 재생 중 <video> 없으면 무동작.
+  (function shortsScrubber() {
+    var BAND = 48, ENTER_DX = 12;
+    var tracking = false, seeking = false, vid = null;
+    var startX = 0, startY = 0;
+    var track = null, fill = null;
+
+    function activeVideo() {
+      var vids = document.querySelectorAll('video');
+      var mid = window.innerHeight / 2;
+      for (var i = 0; i < vids.length; i++) {
+        var r = vids[i].getBoundingClientRect();
+        if (r.width > 0 && r.top < mid && r.bottom > mid && vids[i].duration > 0) return vids[i];
+      }
+      return null;
+    }
+
+    function ensureBar() {
+      if (track) return;
+      track = document.createElement('div');
+      track.style.cssText = 'position:fixed;left:12px;right:12px;bottom:10px;height:5px;' +
+        'background:rgba(255,255,255,0.3);border-radius:3px;z-index:2147483647;' +
+        'pointer-events:none;display:none;';
+      fill = document.createElement('div');
+      fill.style.cssText = 'height:100%;width:0;background:#f03;border-radius:3px;';
+      track.appendChild(fill);
+      (document.body || document.documentElement).appendChild(track);
+    }
+
+    document.addEventListener('touchstart', function (e) {
+      try {
+        tracking = false;
+        if (location.pathname.indexOf('/shorts') !== 0) return;
+        var t = e.touches[0];
+        if (t.clientY < window.innerHeight - BAND) return;
+        vid = activeVideo();
+        if (!vid) return;
+        tracking = true; seeking = false;
+        startX = t.clientX; startY = t.clientY;
+      } catch (err) { tracking = false; }
+    }, true);
+
+    document.addEventListener('touchmove', function (e) {
+      try {
+        if (!tracking) return;
+        var t = e.touches[0];
+        var dx = t.clientX - startX, dy = t.clientY - startY;
+        if (!seeking) {
+          if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; } // 세로 우세 → 양보
+          if (Math.abs(dx) < ENTER_DX || Math.abs(dx) < Math.abs(dy) * 1.5) return; // 판단 유보
+          seeking = true; ensureBar(); track.style.display = 'block';
+        }
+        e.preventDefault(); e.stopPropagation();
+        // 절대 위치 매핑: 화면 x = 영상 진행 위치 (진행바 멘탈 모델과 일치)
+        var frac = Math.min(1, Math.max(0, t.clientX / window.innerWidth));
+        if (vid.duration > 0) vid.currentTime = frac * vid.duration;
+        fill.style.width = (frac * 100) + '%';
+      } catch (err) {}
+    }, { capture: true, passive: false });
+
+    function endSeek() {
+      if (seeking && track) track.style.display = 'none';
+      tracking = false; seeking = false; vid = null;
+    }
+    document.addEventListener('touchend', endSeek, true);
+    document.addEventListener('touchcancel', endSeek, true);
+  })();
+
   function sweep() { window.__utubSweeps = (window.__utubSweeps || 0) + 1; adBlockSweep(); hidePivotBar(); }
 
   // 변이 폭주(스크롤 중 다수 발화)를 250ms로 코얼레싱 — 마지막 변이 후에도 반드시 1회 실행

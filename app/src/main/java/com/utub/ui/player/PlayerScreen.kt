@@ -75,6 +75,7 @@ import com.utub.ui.shared.formatDuration
 fun PlayerScreen(
     onCollapse: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel(),
+    isInPip: Boolean = false,
 ) {
     val currentItem by viewModel.currentItem.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
@@ -101,16 +102,22 @@ fun PlayerScreen(
         fsControlsVisible = true
         activity?.let { if (on) Fullscreen.enter(it) else Fullscreen.exit(it) }
     }
+    // 전체화면 또는 PIP 창: 영상 서피스만 렌더 (F-40 — PIP 컨트롤은 시스템/커스텀 액션 사용)
+    val surfaceOnly = isFullscreen || isInPip
+
     // 뒤로가기: 전체화면 해제가 화면 이탈보다 우선
     BackHandler(enabled = isFullscreen) { setFullscreen(false) }
+    // 뒤로가기: 앱 밖으로 바로 나가지 않고 항상 앱 홈을 거친다 — 공유 직진입처럼
+    // 백스택에 홈이 없는 경우 onCollapse의 폴백(navigate home)이 홈으로 보낸다
+    BackHandler(enabled = !isFullscreen) { onCollapse() }
     // 화면 이탈(접기·종료 등) 시 회전·시스템바 복원 누락 방지
     DisposableEffect(Unit) {
         onDispose { if (isFullscreen) activity?.let(Fullscreen::exit) }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 상단: 접기 (컴팩트) — 전체화면에서는 숨김
-        if (!isFullscreen) {
+        // 상단: 접기 (컴팩트) — 전체화면·PIP에서는 숨김
+        if (!surfaceOnly) {
         Row(
             modifier = Modifier.height(40.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +138,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (isFullscreen) Modifier.weight(1f)
+                    if (surfaceOnly) Modifier.weight(1f)
                     else Modifier.aspectRatio(16f / 9f),
                 )
                 .background(Color.Black)
@@ -165,7 +172,7 @@ fun PlayerScreen(
                 }
             }
             // 전체화면 진입 버튼 (포트레이트, 우하단 오버레이 — 유튜브 위치 관례)
-            if (!isFullscreen && !audioOnly) {
+            if (!surfaceOnly && !audioOnly) {
                 IconButton(
                     onClick = { setFullscreen(true) },
                     modifier = Modifier.align(Alignment.BottomEnd).size(40.dp),
@@ -174,7 +181,7 @@ fun PlayerScreen(
                 }
             }
             // 전체화면 오버레이 컨트롤 (영상 탭으로 표시/숨김 토글)
-            if (isFullscreen && fsControlsVisible) {
+            if (isFullscreen && !isInPip && fsControlsVisible) {
                 IconButton(
                     onClick = { setFullscreen(false) },
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(44.dp),
@@ -270,8 +277,8 @@ fun PlayerScreen(
             }
         }
 
-        // ── 이하 전부 포트레이트 전용 (전체화면에서는 영상+오버레이만) ──
-        if (!isFullscreen) {
+        // ── 이하 전부 포트레이트 전용 (전체화면·PIP에서는 영상만) ──
+        if (!surfaceOnly) {
         // 제목·채널 + 진행바 (초컴팩트)
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
             Text(
@@ -452,7 +459,7 @@ fun PlayerScreen(
                 }
             }
         }
-        } // if (!isFullscreen)
+        } // if (!surfaceOnly)
     }
 }
 

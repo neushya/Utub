@@ -434,6 +434,8 @@ class PlaybackService : MediaSessionService() {
         recordAndPersist()
         player.stop()
         player.clearMediaItems()
+        // 완전 종료 신호 — PIP 창(액티비티)이 떠 있으면 함께 닫히도록 (죽은 빈 창 방지)
+        sendBroadcast(Intent(ACTION_PLAYBACK_STOPPED).setPackage(packageName))
         stopSelf()
     }
 
@@ -469,6 +471,16 @@ class PlaybackService : MediaSessionService() {
 
     // ── 수명주기 (TC-PB-09/10) ─────────────────────────────────────────────
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // PIP X(완전 종료) — 브로드캐스트는 창 정리 타이밍에 유실될 수 있어
+        // 서비스 직행 인텐트로 받는다 (FGS라 확실히 수신)
+        if (intent?.action == ACTION_STOP_ALL) {
+            stopPlaybackAndService()
+            return super.onStartCommand(null, flags, startId)
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -493,6 +505,8 @@ class PlaybackService : MediaSessionService() {
         const val CMD_SET_AUDIO_ONLY = "com.utub.SET_AUDIO_ONLY"
         const val CMD_SLEEP_TIMER = "com.utub.SLEEP_TIMER"
         const val CMD_APP_BACKGROUND = "com.utub.APP_BACKGROUND"
+        const val ACTION_STOP_ALL = "com.utub.action.STOP_ALL"
+        const val ACTION_PLAYBACK_STOPPED = "com.utub.action.PLAYBACK_STOPPED"
         const val CMD_SET_VOLUME = "com.utub.SET_VOLUME"
         const val KEY_ENABLED = "enabled"
         const val KEY_MINUTES = "minutes"
