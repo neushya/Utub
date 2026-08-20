@@ -2,9 +2,11 @@
 
 package com.utub.ui.player
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Bedtime
@@ -45,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -86,8 +92,25 @@ fun PlayerScreen(
     val related by viewModel.related.collectAsState()
     val playerVolume by viewModel.playerVolume.collectAsState()
 
+    // ── 전체화면 (docs/09 ⑦) ────────────────────────────────────────────────
+    val activity = LocalContext.current.findActivity()
+    var isFullscreen by remember { mutableStateOf(false) }
+    var fsControlsVisible by remember { mutableStateOf(true) }
+    fun setFullscreen(on: Boolean) {
+        isFullscreen = on
+        fsControlsVisible = true
+        activity?.let { if (on) Fullscreen.enter(it) else Fullscreen.exit(it) }
+    }
+    // 뒤로가기: 전체화면 해제가 화면 이탈보다 우선
+    BackHandler(enabled = isFullscreen) { setFullscreen(false) }
+    // 화면 이탈(접기·종료 등) 시 회전·시스템바 복원 누락 방지
+    DisposableEffect(Unit) {
+        onDispose { if (isFullscreen) activity?.let(Fullscreen::exit) }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // 상단: 접기 (컴팩트)
+        // 상단: 접기 (컴팩트) — 전체화면에서는 숨김
+        if (!isFullscreen) {
         Row(
             modifier = Modifier.height(40.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -100,13 +123,25 @@ fun PlayerScreen(
                 Icon(Icons.Default.Close, "재생 종료")
             }
         }
+        }
 
-        // 영상/앨범아트 영역
+        // 영상/앨범아트 영역 — 전체화면이면 화면 전체, 아니면 16:9.
+        // AndroidView(PlayerView)는 동일 노드로 유지되어 전환 시 서피스가 끊기지 않는다
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .background(Color.Black),
+                .then(
+                    if (isFullscreen) Modifier.weight(1f)
+                    else Modifier.aspectRatio(16f / 9f),
+                )
+                .background(Color.Black)
+                .then(
+                    if (isFullscreen) Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { fsControlsVisible = !fsControlsVisible }
+                    else Modifier,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (audioOnly) {
@@ -127,6 +162,90 @@ fun PlayerScreen(
                         update = { it.player = viewModel.connection.player },
                         modifier = Modifier.fillMaxSize(),
                     )
+                }
+            }
+            // 전체화면 진입 버튼 (포트레이트, 우하단 오버레이 — 유튜브 위치 관례)
+            if (!isFullscreen && !audioOnly) {
+                IconButton(
+                    onClick = { setFullscreen(true) },
+                    modifier = Modifier.align(Alignment.BottomEnd).size(40.dp),
+                ) {
+                    Icon(Icons.Default.Fullscreen, "전체화면", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+            }
+            // 전체화면 오버레이 컨트롤 (영상 탭으로 표시/숨김 토글)
+            if (isFullscreen && fsControlsVisible) {
+                IconButton(
+                    onClick = { setFullscreen(false) },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(44.dp),
+                ) {
+                    Icon(Icons.Default.FullscreenExit, "전체화면 종료", tint = Color.White, modifier = Modifier.size(26.dp))
+                }
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                ) {
+                    Slider(
+                        value = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
+                        onValueChange = { f -> if (durationMs > 0) viewModel.seekTo((f * durationMs).toLong()) },
+                        modifier = Modifier.height(14.dp),
+                        thumb = {
+                            Box(
+                                Modifier
+                                    .size(10.dp)
+                                    .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape),
+                            )
+                        },
+                        track = { state ->
+                            val fraction = state.value
+                            Box(Modifier.fillMaxWidth().height(3.dp)) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .background(Color.White.copy(alpha = 0.35f), androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                                )
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth(fraction)
+                                        .height(3.dp)
+                                        .background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
+                                )
+                            }
+                        },
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        IconButton(onClick = viewModel::previous, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.SkipPrevious, "이전", tint = Color.White)
+                        }
+                        IconButton(onClick = { viewModel.seekBy(-10_000) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Replay10, "10초 뒤로", tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                        FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(42.dp)) {
+                            Icon(
+                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                if (isPlaying) "일시정지" else "재생",
+                            )
+                        }
+                        IconButton(onClick = { viewModel.seekBy(10_000) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Forward10, "10초 앞으로", tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(onClick = viewModel::next, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.SkipNext, "다음", tint = Color.White)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                        )
+                    }
                 }
             }
             if (isResolving || isBuffering) {
@@ -151,6 +270,8 @@ fun PlayerScreen(
             }
         }
 
+        // ── 이하 전부 포트레이트 전용 (전체화면에서는 영상+오버레이만) ──
+        if (!isFullscreen) {
         // 제목·채널 + 진행바 (초컴팩트)
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
             Text(
@@ -331,6 +452,7 @@ fun PlayerScreen(
                 }
             }
         }
+        } // if (!isFullscreen)
     }
 }
 

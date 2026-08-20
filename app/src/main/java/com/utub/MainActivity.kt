@@ -188,7 +188,8 @@ private fun UTubApp(
             // 손가락 시킹 드래그를 미니플레이어가 가로채는 문제 방지 (docs/09 ⑤)
             val onShortsTab = currentRoute == "home" && webTarget == com.utub.webview.YT_SHORTS
             if (currentItem != null && currentRoute != "player" && currentRoute != "onboarding" && !onShortsTab) {
-                MiniPlayerBar(
+                // 영상 미니플레이어 (docs/09 ⑥) — 문제 시 MiniPlayerBar로 1줄 롤백 가능
+                com.utub.ui.player.VideoMiniPlayerBar(
                     viewModel = playerViewModel,
                     onExpand = { navController.navigate("player") },
                 )
