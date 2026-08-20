@@ -11,7 +11,7 @@ import androidx.room.RoomDatabase
         PlaybackStateEntity::class,
     ],
     version = 1,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class UTubDatabase : RoomDatabase() {
     abstract fun queueDao(): QueueDao

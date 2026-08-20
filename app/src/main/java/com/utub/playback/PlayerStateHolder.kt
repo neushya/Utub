@@ -25,6 +25,11 @@ class PlayerStateHolder @Inject constructor() {
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
 
     /** 현재 영상의 연관영상 목록 (네이티브 상세화면용, 방식 B) */
+    /** 취침 타이머 상태 (기술부채 2 — 잔여시간 UI 표시용, 서비스가 중계) */
+    private val _sleepTimerState = MutableStateFlow<SleepTimerManager.State>(SleepTimerManager.State.Off)
+    val sleepTimerState: StateFlow<SleepTimerManager.State> = _sleepTimerState.asStateFlow()
+    fun setSleepTimerState(state: SleepTimerManager.State) { _sleepTimerState.value = state }
+
     private val _related = MutableStateFlow<List<com.utub.extractor.VideoSummary>>(emptyList())
     val related: StateFlow<List<com.utub.extractor.VideoSummary>> = _related.asStateFlow()
 

@@ -52,6 +52,12 @@ android {
     }
 }
 
+ksp {
+    // 기술부채 1 (docs/08 P1): 스키마 설계도 보존 — 향후 DB version 승격 시
+    // 마이그레이션 작성·검증(MigrationTestHelper)의 기반
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
     implementation(libs.androidx.core.ktx)

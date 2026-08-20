@@ -161,6 +161,9 @@ class PlaybackService : MediaSessionService() {
             player.volume = userVolume
         }
 
+        // 타이머 상태를 UI로 중계 (기술부채 2 — 잔여시간 표시)
+        scope.launch { sleepTimer.state.collect { stateHolder.setSleepTimerState(it) } }
+
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         observeQueue()

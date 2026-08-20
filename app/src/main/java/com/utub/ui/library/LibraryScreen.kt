@@ -13,14 +13,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.utub.ui.home.HomeViewModel
 import com.utub.ui.shared.EmptyState
 import com.utub.ui.shared.VideoCard
 import com.utub.ui.shared.formatDuration
 
 /** 보관함 탭 (1차 골격): 최근 재생·이어보기. 재생목록·나중에 보기·다운로드는 2차 */
 @Composable
-fun LibraryScreen(viewModel: HomeViewModel = hiltViewModel()) {
+fun LibraryScreen(viewModel: LibraryViewModel = hiltViewModel()) {
     val recentPlays by viewModel.recentPlays.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {

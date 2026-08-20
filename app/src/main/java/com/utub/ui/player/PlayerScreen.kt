@@ -92,6 +92,7 @@ fun PlayerScreen(
     val currentIndex by viewModel.currentIndex.collectAsState()
     val related by viewModel.related.collectAsState()
     val playerVolume by viewModel.playerVolume.collectAsState()
+    val sleepTimer by viewModel.sleepTimerState.collectAsState()
 
     // ── 전체화면 (docs/09 ⑦) ────────────────────────────────────────────────
     val activity = LocalContext.current.findActivity()
@@ -396,7 +397,7 @@ fun PlayerScreen(
                 onVolumeCommit = viewModel::persistPlayerVolume,
             )
             SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
-            SleepTimerChip(onSelected = viewModel::setSleepTimer)
+            SleepTimerChip(state = sleepTimer, onSelected = viewModel::setSleepTimer)
         }
 
         // 대기열 (SCR-320)
@@ -487,11 +488,32 @@ private fun SpeedChipCompact(speed: Float, onSpeedSelected: (Float) -> Unit) {
 }
 
 @Composable
-private fun SleepTimerChip(onSelected: (Int) -> Unit) {
+private fun SleepTimerChip(
+    state: com.utub.playback.SleepTimerManager.State,
+    onSelected: (Int) -> Unit,
+) {
     var open by remember { mutableStateOf(false) }
+    val active = state !is com.utub.playback.SleepTimerManager.State.Off
     Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(30.dp)) {
-            Icon(Icons.Default.Bedtime, "취침 타이머", modifier = Modifier.size(16.dp))
+        // 활성 시 잔여시간(분:초) 또는 "끝까지" 표시 — 기술부채 2 (잔여시간 UI)
+        if (state is com.utub.playback.SleepTimerManager.State.Countdown) {
+            Text(
+                formatDuration(state.remainingMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable { open = true }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+            )
+        } else {
+            IconButton(onClick = { open = true }, modifier = Modifier.size(30.dp)) {
+                Icon(
+                    Icons.Default.Bedtime, "취침 타이머",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (active) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("끔") }, onClick = { onSelected(0); open = false })

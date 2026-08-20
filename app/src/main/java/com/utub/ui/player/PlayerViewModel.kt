@@ -55,6 +55,9 @@ class PlayerViewModel @Inject constructor(
     private val _shuffle = MutableStateFlow(false)
     val shuffle: StateFlow<Boolean> = _shuffle.asStateFlow()
 
+    /** 취침 타이머 실시간 상태 (잔여시간 표시용 — 기술부채 2) */
+    val sleepTimerState: StateFlow<com.utub.playback.SleepTimerManager.State> = stateHolder.sleepTimerState
+
     val sleepTimerMinutes: StateFlow<Int> = kotlinx.coroutines.flow.flow {
         settingsRepository.settings.collect { emit(it.sleepTimerMinutes) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
