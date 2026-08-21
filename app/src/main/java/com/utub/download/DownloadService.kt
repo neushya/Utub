@@ -61,10 +61,10 @@ class DownloadService : Service() {
                             val percent = if (p.totalBytes > 0) (p.bytesRead * 100 / p.totalBytes).toInt() else 0
                             notify(
                                 buildNotification(
-                                    title = p.request.title,
+                                    title = if (p.merging) "병합 중 · ${p.request.title}" else p.request.title,
                                     percent = percent,
                                     max = 100,
-                                    indeterminate = p.totalBytes <= 0,
+                                    indeterminate = p.merging || p.totalBytes <= 0,
                                 ),
                             )
                         }

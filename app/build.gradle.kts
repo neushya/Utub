@@ -15,8 +15,8 @@ android {
         applicationId = "com.utub"
         minSdk = 28 // 갤럭시 S8+(Android 9) 실기기 지원 위해 29→28 하향 (2026-08-17)
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.8.0"
+        versionCode = 9
+        versionName = "0.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.newpipe.extractor)
 
     testImplementation(libs.junit5.api)
+    testImplementation("org.json:json:20240303") // 단위테스트에서 android.jar의 org.json 스텁 대체 (BackupCodec 테스트)
     testImplementation(libs.junit5.params)
     testRuntimeOnly(libs.junit5.engine)
     testRuntimeOnly(libs.junit.vintage)

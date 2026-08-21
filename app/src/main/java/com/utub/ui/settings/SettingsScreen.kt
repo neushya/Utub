@@ -106,6 +106,7 @@ fun SettingsScreen(
                 )
             }
         }
+        BackupSection()
 
         SectionTitle("재생")
 

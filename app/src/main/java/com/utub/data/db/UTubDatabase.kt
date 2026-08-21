@@ -16,16 +16,18 @@ import androidx.room.RoomDatabase
         PlaylistItemEntity::class,
         DownloadEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     // v1→v2: watch_later·liked 테이블 추가 (2차 1단계, F-24) —
     // 단순 테이블 추가라 자동 마이그레이션으로 기존 데이터(시청기록·대기열) 보존
     // v2→v3: playlists·playlist_items 테이블 추가 (2차 2단계) — 동일하게 테이블 추가만
     // v3→v4: downloads 테이블 추가 (3차 오프라인 저장) — 동일하게 테이블 추가만
+    // v4→v5: downloads.heightPx 컬럼 추가 (고화질 다운로드) — 기본값 있는 컬럼 추가
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
     ],
 )
 abstract class UTubDatabase : RoomDatabase() {

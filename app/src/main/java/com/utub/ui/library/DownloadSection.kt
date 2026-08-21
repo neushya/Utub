@@ -179,7 +179,7 @@ fun DownloadSection(
                             channelName = e.channelName,
                             thumbnailUrl = e.thumbnailUrl,
                             durationMs = e.durationMs,
-                            subtitle = "${if (e.isAudioOnly) "🎵 오디오" else "🎬 영상"} · ${DownloadManager.formatBytes(e.sizeBytes)} · 오프라인",
+                            subtitle = "${if (e.isAudioOnly) "🎵 오디오" else "🎬 영상" + if (e.heightPx > 480) " ${e.heightPx}p" else ""} · ${DownloadManager.formatBytes(e.sizeBytes)} · 오프라인",
                             onClick = { viewModel.play(e) },
                             modifier = Modifier.weight(1f),
                         )

@@ -84,6 +84,13 @@ interface PlaylistDao {
     @Query("UPDATE playlist_items SET sortOrder = :order WHERE id = :id")
     suspend fun setSortOrder(id: Long, order: Long)
 
+    // ── 백업/복원용 (5차) ──
+    @Query("SELECT * FROM playlists ORDER BY createdAt ASC")
+    suspend fun getAllPlaylists(): List<PlaylistEntity>
+
+    @Query("SELECT * FROM playlist_items WHERE playlistId = :playlistId ORDER BY sortOrder ASC")
+    suspend fun getItems(playlistId: Long): List<PlaylistItemEntity>
+
     // ── Takeout 가져오기용 (4차) — 이름 병합·제목 보강 ──
     @Query("SELECT playlistId FROM playlists WHERE name = :name LIMIT 1")
     suspend fun findIdByName(name: String): Long?

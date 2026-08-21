@@ -14,6 +14,13 @@ interface WatchLaterDao {
     @Query("SELECT EXISTS(SELECT 1 FROM watch_later WHERE videoId = :videoId)")
     fun observeContains(videoId: String): Flow<Boolean>
 
+    // ── 백업/복원용 (5차) ──
+    @Query("SELECT * FROM watch_later")
+    suspend fun getAll(): List<WatchLaterEntity>
+
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: WatchLaterEntity): Long
+
     @Upsert
     suspend fun upsert(entity: WatchLaterEntity)
 
@@ -35,6 +42,9 @@ interface LikedDao {
 
     @Query("SELECT videoId FROM liked WHERE title = ''")
     suspend fun getUntitled(): List<String>
+
+    @Query("SELECT * FROM liked")
+    suspend fun getAll(): List<LikedEntity>
 
     @Query("UPDATE liked SET title = :title, channelName = :channel WHERE videoId = :videoId AND title = ''")
     suspend fun updateMeta(videoId: String, title: String, channel: String)

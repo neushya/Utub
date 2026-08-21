@@ -54,7 +54,7 @@ class DownloadActionsViewModel @Inject constructor(
 
     fun downloaded(videoId: String): Flow<DownloadEntity?> = downloadDao.observe(videoId)
 
-    fun download(item: QueueManager.Item, audioOnly: Boolean) {
+    fun download(item: QueueManager.Item, audioOnly: Boolean, targetHeight: Int = 0) {
         viewModelScope.launch {
             val error = manager.enqueue(
                 DownloadManager.Request(
@@ -64,6 +64,7 @@ class DownloadActionsViewModel @Inject constructor(
                     thumbnailUrl = item.thumbnailUrl,
                     durationMs = item.durationMs,
                     audioOnly = audioOnly,
+                    targetHeight = targetHeight,
                 ),
             )
             if (error == null) {
@@ -114,7 +115,8 @@ fun DownloadSheet(
                 val d = downloaded!!
                 SheetRow(
                     icon = Icons.Default.DownloadDone,
-                    title = "저장됨 · ${DownloadManager.formatBytes(d.sizeBytes)} · ${if (d.isAudioOnly) "오디오" else "영상"}",
+                    title = "저장됨 · ${DownloadManager.formatBytes(d.sizeBytes)} · " +
+                        if (d.isAudioOnly) "오디오" else "영상" + if (d.heightPx > 480) " ${d.heightPx}p" else "",
                     subtitle = "인터넷 없이 재생돼요",
                     onClick = onDismiss,
                 )
@@ -128,7 +130,6 @@ fun DownloadSheet(
 
             else -> {
                 val audioEst = DownloadManager.estimateBytes(item.durationMs, audioOnly = true)
-                val videoEst = DownloadManager.estimateBytes(item.durationMs, audioOnly = false)
                 SheetRow(
                     icon = Icons.Default.Headphones,
                     title = "오디오만 저장",
@@ -137,10 +138,24 @@ fun DownloadSheet(
                 )
                 SheetRow(
                     icon = Icons.Default.Videocam,
-                    title = "영상 저장",
-                    subtitle = "약 ${DownloadManager.formatBytes(videoEst)} · 기본 화질(360p)",
+                    title = "영상 저장 (기본 화질)",
+                    subtitle = "약 ${DownloadManager.formatBytes(DownloadManager.estimateBytes(item.durationMs, false))} · 360p",
                     onClick = { viewModel.download(item, audioOnly = false); onDismiss() },
                 )
+                // 고화질 (4차): 현재 재생 곡의 가용 화질에서 720p·1080p 노출 — 영상·소리 병합 저장
+                val qc: QualityCcViewModel = hiltViewModel()
+                val available by qc.availableQualities.collectAsState()
+                listOf(720, 1080).forEach { h ->
+                    if (available.any { it in (h - 260)..h }) {
+                        val est = DownloadManager.estimateBytes(item.durationMs, false, h)
+                        SheetRow(
+                            icon = Icons.Default.Videocam,
+                            title = "영상 저장 (${h}p 고화질)",
+                            subtitle = "약 ${DownloadManager.formatBytes(est)} · 받은 뒤 자동 병합",
+                            onClick = { viewModel.download(item, audioOnly = false, targetHeight = h); onDismiss() },
+                        )
+                    }
+                }
             }
         }
     }

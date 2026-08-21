@@ -16,6 +16,9 @@ data class DownloadEntity(
     val durationMs: Long,
     val filePath: String,
     val isAudioOnly: Boolean,
+    /** 저장 화질 (0 = 기본/오디오) — 4차 고화질 다운로드 */
+    @androidx.room.ColumnInfo(defaultValue = "0")
+    val heightPx: Int = 0,
     val sizeBytes: Long,
     val completedAt: Long,
 )

@@ -66,6 +66,10 @@ interface RecentPlayDao {
     @Query("DELETE FROM recent_plays")
     suspend fun clearAll()
 
+    /** 백업용 전체 조회 (5차) */
+    @Query("SELECT * FROM recent_plays ORDER BY playedAt DESC")
+    suspend fun getAll(): List<RecentPlayEntity>
+
     // ── Takeout 가져오기용 (4차) — 중복 무시·DB 위생 ──
     @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
     suspend fun insertIgnore(entity: RecentPlayEntity): Long
