@@ -54,7 +54,10 @@ fun YouTubeWebView(
                     javaScriptEnabled = true
                     domStorageEnabled = true
                     databaseEnabled = true
-                    mediaPlaybackRequiresUserGesture = true
+                    // false: 하단 네비 Shorts 탭(네이티브 버튼 → loadUrl)으로 연 쇼츠도
+                    // 소리 자동재생 허용 — 웹뷰는 네이티브 터치를 제스처로 인정하지 않아
+                    // true면 무음 자동재생 정책이 발동한다 (사용자 결함 보고, 2026-08-21)
+                    mediaPlaybackRequiresUserGesture = false
                     userAgentString = UA
                     loadWithOverviewMode = true
                     useWideViewPort = true

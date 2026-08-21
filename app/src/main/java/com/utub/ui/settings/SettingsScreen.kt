@@ -76,10 +76,35 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
 
+    // Takeout 가져오기 화면 (4차) — 설정 내부 전환, back으로 복귀
+    var showTakeout by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (showTakeout) {
+        TakeoutScreen(onBack = { showTakeout = false })
+        return
+    }
+
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로") }
             Text("설정", style = MaterialTheme.typography.titleLarge)
+        }
+
+        SectionTitle("데이터")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showTakeout = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("유튜브 데이터 가져오기", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "재생목록·좋아요·시청기록을 UTub으로 (구글 Takeout)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         SectionTitle("재생")

@@ -89,7 +89,7 @@ fun HybridScreen(
                 onWatch = { url ->
                     if (viewModel.onWatchIntercepted(url) != null) onVideoSelected()
                 },
-                onNav = { },
+                onNav = viewModel::onNavigation,
                 onCanGoBackChanged = { webCanGoBack = it },
                 controller = controller,
                 modifier = Modifier.fillMaxSize(),

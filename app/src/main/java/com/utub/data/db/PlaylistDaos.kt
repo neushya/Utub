@@ -84,6 +84,16 @@ interface PlaylistDao {
     @Query("UPDATE playlist_items SET sortOrder = :order WHERE id = :id")
     suspend fun setSortOrder(id: Long, order: Long)
 
+    // ── Takeout 가져오기용 (4차) — 이름 병합·제목 보강 ──
+    @Query("SELECT playlistId FROM playlists WHERE name = :name LIMIT 1")
+    suspend fun findIdByName(name: String): Long?
+
+    @Query("SELECT DISTINCT videoId FROM playlist_items WHERE title = ''")
+    suspend fun getUntitledItems(): List<String>
+
+    @Query("UPDATE playlist_items SET title = :title, channelName = :channel WHERE videoId = :videoId AND title = ''")
+    suspend fun updateItemMeta(videoId: String, title: String, channel: String)
+
     /** 위/아래 이동 — 인접 두 항목의 순서 교환 (원자적) */
     @Transaction
     suspend fun swapOrder(aId: Long, aOrder: Long, bId: Long, bOrder: Long) {

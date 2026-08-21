@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -57,11 +58,13 @@ fun PlaylistSection(
 ) {
     val playlists by viewModel.playlists.collectAsState()
     val openId by viewModel.openPlaylistId.collectAsState()
+    // 목록 스크롤 위치를 상세 진입 중에도 보존 — 목록 화면 안에 두면 전환 시 파괴됨 (사용자 지적)
+    val listScrollState = remember { LazyListState() }
 
     BackHandler(enabled = openId != null) { viewModel.open(null) }
 
     if (openId == null) {
-        PlaylistListView(playlists, viewModel, modifier)
+        PlaylistListView(playlists, viewModel, modifier, listScrollState)
     } else {
         PlaylistDetailView(
             playlist = playlists.firstOrNull { it.playlistId == openId },
@@ -76,6 +79,7 @@ private fun PlaylistListView(
     playlists: List<PlaylistWithCount>,
     viewModel: PlaylistViewModel,
     modifier: Modifier = Modifier,
+    scrollState: LazyListState = LazyListState(),
 ) {
     var showCreate by remember { mutableStateOf(false) }
 
@@ -102,7 +106,7 @@ private fun PlaylistListView(
         if (playlists.isEmpty()) {
             EmptyState("재생목록이 없어요\n\"새 재생목록\" 또는 플레이어 상단의 ➕ 버튼으로 만들어보세요")
         } else {
-            LazyColumn {
+            LazyColumn(state = scrollState) {
                 itemsIndexed(playlists, key = { _, p -> p.playlistId }) { _, p ->
                     PlaylistRow(
                         playlist = p,

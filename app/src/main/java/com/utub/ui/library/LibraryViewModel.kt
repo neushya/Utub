@@ -32,8 +32,8 @@ class LibraryViewModel @Inject constructor(
     private val connection: PlayerConnection,
 ) : ViewModel() {
 
-    /** 최근 재생 (이어보기 포함, 최신순 50개) */
-    val recentPlays: StateFlow<List<RecentPlayEntity>> = recentPlayDao.observeRecent(50)
+    /** 최근 재생 (이어보기 포함, 최신순 500개 — 사용자 확정, LazyColumn 가상화로 성능 무영향) */
+    val recentPlays: StateFlow<List<RecentPlayEntity>> = recentPlayDao.observeRecent(500)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 나중에 보기 (F-24) */

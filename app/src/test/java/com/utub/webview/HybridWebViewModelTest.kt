@@ -13,7 +13,8 @@ class HybridWebViewModelTest {
 
     private val stateHolder = PlayerStateHolder()
     private val connection = mockk<PlayerConnection>(relaxed = true)
-    private val vm = HybridWebViewModel(stateHolder, connection)
+    private val shortsRecorder = mockk<ShortsHistoryRecorder>(relaxed = true)
+    private val vm = HybridWebViewModel(stateHolder, connection, shortsRecorder)
 
     @Test
     @DisplayName("TC-WV-02: watch 가로채기 → 대기열에 videoId 넣고 재생 연결, videoId 반환")

@@ -212,7 +212,17 @@
     document.addEventListener('touchcancel', endSeek, true);
   })();
 
-  function sweep() { window.__utubSweeps = (window.__utubSweeps || 0) + 1; adBlockSweep(); hidePivotBar(); }
+  // 쇼츠 한정 음소거 해제: 유튜브가 자동재생 정책 판정을 캐시해 muted로 시작하는 경우의 안전벨트.
+  // /shorts 경로에서만 동작 — 홈 인라인 미리보기(유튜브 의도적 muted)는 건드리지 않는다.
+  function unmuteShorts() {
+    try {
+      if (location.pathname.indexOf('/shorts') !== 0) return;
+      var v = document.querySelector('video');
+      if (v && v.muted) { v.muted = false; v.volume = 1; }
+    } catch (e) {}
+  }
+
+  function sweep() { window.__utubSweeps = (window.__utubSweeps || 0) + 1; adBlockSweep(); hidePivotBar(); unmuteShorts(); }
 
   // 변이 폭주(스크롤 중 다수 발화)를 250ms로 코얼레싱 — 마지막 변이 후에도 반드시 1회 실행
   var sweepPending = false;

@@ -65,6 +65,18 @@ interface RecentPlayDao {
 
     @Query("DELETE FROM recent_plays")
     suspend fun clearAll()
+
+    // ── Takeout 가져오기용 (4차) — 중복 무시·DB 위생 ──
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: RecentPlayEntity): Long
+
+    /** 쇼츠 재시청 등 — 날짜만 최신화 (제목·이어보기 위치 보존) */
+    @Query("UPDATE recent_plays SET playedAt = :playedAt WHERE videoId = :videoId")
+    suspend fun touch(videoId: String, playedAt: Long)
+
+    /** 최신 [keep]건만 남기고 오래된 기록 정리 */
+    @Query("DELETE FROM recent_plays WHERE videoId NOT IN (SELECT videoId FROM recent_plays ORDER BY playedAt DESC LIMIT :keep)")
+    suspend fun trim(keep: Int)
 }
 
 @Dao

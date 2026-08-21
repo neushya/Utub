@@ -29,6 +29,16 @@ interface LikedDao {
     @Query("SELECT * FROM liked ORDER BY addedAt DESC")
     fun observeAll(): Flow<List<LikedEntity>>
 
+    // ── Takeout 가져오기용 (4차) — 중복 무시·제목 보강 ──
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: LikedEntity): Long
+
+    @Query("SELECT videoId FROM liked WHERE title = ''")
+    suspend fun getUntitled(): List<String>
+
+    @Query("UPDATE liked SET title = :title, channelName = :channel WHERE videoId = :videoId AND title = ''")
+    suspend fun updateMeta(videoId: String, title: String, channel: String)
+
     @Query("SELECT EXISTS(SELECT 1 FROM liked WHERE videoId = :videoId)")
     fun observeContains(videoId: String): Flow<Boolean>
 
