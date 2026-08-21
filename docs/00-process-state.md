@@ -75,6 +75,15 @@
 - 빌드 메모: kspDebug/kspRelease가 schemas/3.json 동시 기록 → 일시적 JSON 경합 1회(재빌드 해소, 코드 무관)
 - 단위테스트 64/64 유지 (TC-SHR-09 라이브 스펙 개정 포함)
 
+## v0.6.0 기록 (2026-08-21 — 3차 오프라인 저장)
+
+- **오프라인 저장(다운로드)**: 플레이어 상단 ⬇ → 오디오(m4a)/영상(muxed 360p) 저장, 보관함 [다운로드] 세그먼트. DB v3→v4 AutoMigration. Foreground 서비스(dataSync)+알림 진행률+취소.
+- **용량 관리 (사용자 요구)**: 항목별 크기·총 사용량·기기 여유 공간 표시, 받기 전 예상 크기, 시작 전 공간 검사(200MB 마진), 개별/일괄 삭제(회수 용량 표시), .part·유령 기록 자동 정리.
+- **오프라인 재생**: PlaybackService에 로컬 분기(저장본 있으면 FileDataSource 재생 — 네트워크 불필요+데이터 절약). **비행기 모드 실기기 검증 통과.**
+- **속도 실측 (사용자 질문 "느리다" → 도구 도입 여부 판단)**: 폰 23MB/0.7초(≈33MB/s), Mac 조각(Range) 방식 대비 0.9배 — 유튜브 스로틀 없음 확인, **조각/병렬 도구 도입 불필요 결론(사용자 합의)**. 최초 1회 관찰된 25초는 전송이 아니라 시작 대기(서버 일시 지연)로 재현 안 됨.
+- 신규 파일 6: DownloadEntities/DownloadDaos/DownloadManager/DownloadService/DownloadSheet/DownloadSection. 연결점: DB v4·AppModule·Manifest·LibraryScreen·PlayerScreen·PlaybackService(로컬 분기).
+- 단위테스트 64/64 유지.
+
 ## 다음 할 일 (다음 세션)
 
 1. 수동 통합테스트 잔여 항목 (docs/07 — 이어폰·전화·블루투스·백그라운드 모드) — **사용자 별도 진행 예정**

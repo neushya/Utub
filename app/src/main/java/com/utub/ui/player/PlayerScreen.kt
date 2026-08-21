@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
@@ -104,6 +105,13 @@ fun PlayerScreen(
     if (showSaveSheet) {
         currentItem?.let { SaveToPlaylistSheet(item = it, onDismiss = { showSaveSheet = false }) }
     }
+    // ── 오프라인 저장 시트 (3차) ──────────────────────────────────────────
+    var showDownloadSheet by remember { mutableStateOf(false) }
+    if (showDownloadSheet) {
+        currentItem?.let {
+            DownloadSheet(item = it, isLive = isLive, onDismiss = { showDownloadSheet = false })
+        }
+    }
 
     // ── 전체화면 (docs/09 ⑦) ────────────────────────────────────────────────
     val activity = LocalContext.current.findActivity()
@@ -175,6 +183,17 @@ fun PlayerScreen(
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.PlaylistAdd, "재생목록에 저장",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // 오프라인 저장 (3차 — 사용자 확정: 상단바 ⬇)
+                IconButton(
+                    onClick = { showDownloadSheet = true },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Download, "오프라인 저장",
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

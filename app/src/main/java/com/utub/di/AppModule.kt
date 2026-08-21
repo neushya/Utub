@@ -2,6 +2,7 @@ package com.utub.di
 
 import android.content.Context
 import androidx.room.Room
+import com.utub.data.db.DownloadDao
 import com.utub.data.db.LikedDao
 import com.utub.data.db.PlaylistDao
 import com.utub.data.db.QueueDao
@@ -38,6 +39,7 @@ object AppModule {
     @Provides fun provideWatchLaterDao(db: UTubDatabase): WatchLaterDao = db.watchLaterDao()
     @Provides fun provideLikedDao(db: UTubDatabase): LikedDao = db.likedDao()
     @Provides fun providePlaylistDao(db: UTubDatabase): PlaylistDao = db.playlistDao()
+    @Provides fun provideDownloadDao(db: UTubDatabase): DownloadDao = db.downloadDao()
 
     @Provides
     @Singleton

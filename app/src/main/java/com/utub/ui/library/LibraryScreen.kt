@@ -87,6 +87,7 @@ fun LibraryScreen(viewModel: LibraryViewModel = hiltViewModel()) {
                 FilterChip(selected = section == 1, onClick = { section = 1 }, label = { Text("나중에 보기") })
                 FilterChip(selected = section == 2, onClick = { section = 2 }, label = { Text("좋아요") })
                 FilterChip(selected = section == 3, onClick = { section = 3 }, label = { Text("재생목록") })
+                FilterChip(selected = section == 4, onClick = { section = 4 }, label = { Text("다운로드") })
             }
             if (!sectionEmpty) {
                 TextButton(onClick = { confirmClear = true }) {
@@ -139,6 +140,8 @@ fun LibraryScreen(viewModel: LibraryViewModel = hiltViewModel()) {
 
             3 -> PlaylistSection(modifier = Modifier.weight(1f))
 
+            4 -> DownloadSection(modifier = Modifier.weight(1f))
+
             2 -> if (liked.isEmpty()) EmptyState("좋아요한 영상이 없어요\n플레이어 상단의 ♥ 버튼으로 담아보세요")
             else LazyColumn(modifier = Modifier.weight(1f)) {
                 items(liked, key = { it.videoId }) { e ->
@@ -157,11 +160,5 @@ fun LibraryScreen(viewModel: LibraryViewModel = hiltViewModel()) {
             }
         }
 
-        Text(
-            "다운로드는 다음 업데이트에서 제공돼요",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(16.dp),
-        )
     }
 }

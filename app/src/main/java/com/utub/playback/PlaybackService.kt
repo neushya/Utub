@@ -16,6 +16,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.FileDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
@@ -57,6 +58,7 @@ class PlaybackService : MediaSessionService() {
 
     @Inject lateinit var stateHolder: PlayerStateHolder
     @Inject lateinit var repository: PlayerRepository
+    @Inject lateinit var downloadDao: com.utub.data.db.DownloadDao
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private var mediaSession: MediaSession? = null
@@ -189,6 +191,32 @@ class PlaybackService : MediaSessionService() {
             stateHolder.setResolving(true)
             stateHolder.setError(null)
             try {
+                // 오프라인 저장본이 있으면 네트워크 해석 없이 로컬 파일 재생 (3차 — 오프라인+데이터 절약)
+                val local = downloadDao.get(item.videoId)
+                if (local != null && java.io.File(local.filePath).exists()) {
+                    stateHolder.setLiveStream(false)
+                    queue.updateMetaIfCurrent(
+                        item.videoId, local.title, local.channelName, local.thumbnailUrl, local.durationMs,
+                    )
+                    val localItem = MediaItem.Builder()
+                        .setUri(android.net.Uri.fromFile(java.io.File(local.filePath)))
+                        .setMediaId(item.videoId)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(local.title)
+                                .setArtist(local.channelName)
+                                .setArtworkUri(local.thumbnailUrl?.let(android.net.Uri::parse))
+                                .build(),
+                        )
+                        .build()
+                    player.setMediaSource(
+                        ProgressiveMediaSource.Factory(FileDataSource.Factory()).createMediaSource(localItem),
+                        startPositionMs,
+                    )
+                    player.prepare()
+                    player.play()
+                    return@launch
+                }
                 val streams = repository.resolve(item.videoId)
                 // D2: 추출 완료 → 현재 아이템 제목/채널/썸네일/길이 실제값으로 갱신 (videoId 일치 시)
                 queue.updateMetaIfCurrent(
