@@ -21,6 +21,7 @@
 
 | 버전 | 날짜 | 주요 내용 |
 |---|---|---|
+| [v0.9.1](https://github.com/neushya/Utub/releases/tag/v0.9.1) | 2026-08-21 | 결함 수정 — 백그라운드 재생 30분경 일시정지 |
 | [v0.9.0](https://github.com/neushya/Utub/releases/tag/v0.9.0) | 2026-08-21 | 고화질(720p/1080p) 다운로드(무재인코딩 병합) · 백업/복원 |
 | [v0.8.0](https://github.com/neushya/Utub/releases/tag/v0.8.0) | 2026-08-21 | 유튜브 데이터 가져오기(Takeout) · 쇼츠 시청기록 · 쇼츠 소리 결함 수정 · 시청기록 500건 |
 | [v0.7.0](https://github.com/neushya/Utub/releases/tag/v0.7.0) | 2026-08-21 | 화질 선택 · 자막(CC) · 미니플레이어 오터치 보강 · 사용성 3건 |
