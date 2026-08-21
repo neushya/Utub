@@ -15,8 +15,8 @@ android {
         applicationId = "com.utub"
         minSdk = 28 // 갤럭시 S8+(Android 9) 실기기 지원 위해 29→28 하향 (2026-08-17)
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.9.0"
+        versionCode = 10
+        versionName = "0.9.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

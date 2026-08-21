@@ -30,6 +30,11 @@ class PlayerStateHolder @Inject constructor() {
     val isLiveStream: StateFlow<Boolean> = _isLiveStream.asStateFlow()
     fun setLiveStream(live: Boolean) { _isLiveStream.value = live }
 
+    /** 앱이 실제 화면에 떠 있는지 — 백그라운드 웹뷰 이벤트의 오발동 게이트 (쇼츠 pause·시청기록) */
+    private val _appInForeground = MutableStateFlow(false)
+    val appInForeground: StateFlow<Boolean> = _appInForeground.asStateFlow()
+    fun setAppInForeground(fg: Boolean) { _appInForeground.value = fg }
+
     /** 플레이어 화면 열기 요청 (보관함·재생목록·다운로드에서 재생 시 — 유튜브 동일 UX) */
     private val _openPlayerRequest = MutableStateFlow(0L)
     val openPlayerRequest: StateFlow<Long> = _openPlayerRequest.asStateFlow()

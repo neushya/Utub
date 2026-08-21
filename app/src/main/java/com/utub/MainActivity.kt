@@ -185,8 +185,14 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)) openPlayerTick++
     }
 
+    override fun onStart() {
+        super.onStart()
+        stateHolder.setAppInForeground(true)
+    }
+
     override fun onStop() {
         super.onStop()
+        stateHolder.setAppInForeground(false)
         // 앱이 백그라운드로 → 백그라운드 재생 정책 적용 (docs/02 4.1절)
         playerConnection.notifyAppBackground()
     }
