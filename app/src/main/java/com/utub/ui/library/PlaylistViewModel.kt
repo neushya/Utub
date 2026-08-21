@@ -94,6 +94,7 @@ class PlaylistViewModel @Inject constructor(
         queue.playNow(ordered.first().toQueueItem())
         ordered.drop(1).forEach { queue.addToQueue(it.toQueueItem()) }
         connection.connect()
+        stateHolder.requestOpenPlayer()
     }
 
     private fun PlaylistItemEntity.toQueueItem() = QueueManager.Item(

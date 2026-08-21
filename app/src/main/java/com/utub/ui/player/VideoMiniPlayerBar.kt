@@ -59,6 +59,7 @@ fun VideoMiniPlayerBar(
     val positionMs by viewModel.positionMs.collectAsState()
     val durationMs by viewModel.durationMs.collectAsState()
     val audioOnly by viewModel.audioOnlyMode.collectAsState()
+    val noVideoTrack by viewModel.noVideoTrack.collectAsState()
     val isResolving by viewModel.isResolving.collectAsState()
 
     if (currentItem == null) return
@@ -94,7 +95,7 @@ fun VideoMiniPlayerBar(
                         .aspectRatio(16f / 9f)
                         .background(MaterialTheme.colorScheme.surface),
                 ) {
-                    val showVideo = !audioOnly && !isResolving && durationMs > 0
+                    val showVideo = !audioOnly && !noVideoTrack && !isResolving && durationMs > 0
                     if (showVideo) {
                         AndroidView(
                             factory = { context ->

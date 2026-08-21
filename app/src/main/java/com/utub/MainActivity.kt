@@ -42,7 +42,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.core.content.ContextCompat
 import com.utub.data.prefs.SettingsRepository
 import com.utub.playback.PlayerConnection
+import androidx.lifecycle.lifecycleScope
 import com.utub.playback.PlayerStateHolder
+import kotlinx.coroutines.launch
 import com.utub.ui.player.PipHelper
 import com.utub.ui.player.findActivity
 import com.utub.ui.home.HomeScreen
@@ -145,6 +147,14 @@ class MainActivity : ComponentActivity() {
             },
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+
+        // 보관함·재생목록·다운로드에서 재생 시 플레이어 화면 자동 열기 (사용자 요청)
+        lifecycleScope.launch {
+            var last = stateHolder.openPlayerRequest.value
+            stateHolder.openPlayerRequest.collect { v ->
+                if (v != last) { last = v; openPlayerTick++ }
+            }
+        }
 
         val onboardingDone = runBlocking { settingsRepository.settings.first().onboardingDone }
         val openPlayer = intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)

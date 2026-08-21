@@ -22,6 +22,7 @@ import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaNotification
@@ -167,6 +168,27 @@ class PlaybackService : MediaSessionService() {
         // 타이머 상태를 UI로 중계 (기술부채 2 — 잔여시간 표시)
         scope.launch { sleepTimer.state.collect { stateHolder.setSleepTimerState(it) } }
 
+        // 자막 기본 꺼짐 (CC 칩으로 켬) + 화질·자막 선택 관찰 (2차 이관분)
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build()
+        scope.launch {
+            var first = true
+            stateHolder.preferredQuality.collect {
+                if (first) { first = false; return@collect } // 초기값은 재해석 불필요
+                switchQuality()
+            }
+        }
+        scope.launch {
+            stateHolder.subtitleLanguage.collect { lang ->
+                // 자막 전환은 재해석 없이 트랙 선택만 변경 — 재생 무중단
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, lang == null)
+                    .setPreferredTextLanguage(lang)
+                    .build()
+            }
+        }
+
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         observeQueue()
@@ -195,6 +217,7 @@ class PlaybackService : MediaSessionService() {
                 val local = downloadDao.get(item.videoId)
                 if (local != null && java.io.File(local.filePath).exists()) {
                     stateHolder.setLiveStream(false)
+                    stateHolder.setNoVideoTrack(local.isAudioOnly) // 오디오 저장본 → 썸네일 폴백
                     queue.updateMetaIfCurrent(
                         item.videoId, local.title, local.channelName, local.thumbnailUrl, local.durationMs,
                     )
@@ -226,6 +249,12 @@ class PlaybackService : MediaSessionService() {
                     stateHolder.setRelated(streams.related) // 방식 B: 상세화면 연관영상
                 }
                 stateHolder.setLiveStream(streams.isLive)
+                stateHolder.setNoVideoTrack(false) // 스트리밍 해석 시 초기화 (아래 선택 결과로 재판정)
+                stateHolder.setAvailableQualities(
+                    (streams.muxedStreams + streams.videoOnlyStreams)
+                        .map { it.heightPx }.filter { it > 0 }.distinct().sortedDescending(),
+                )
+                stateHolder.setAvailableSubtitles(streams.subtitles)
                 val metadata = MediaMetadata.Builder()
                     .setTitle(streams.title)
                     .setArtist(streams.channelName)
@@ -243,8 +272,41 @@ class PlaybackService : MediaSessionService() {
                     )
                 } else {
                     val audioOnly = stateHolder.audioOnlyMode.value
-                    val selection = repository.select(streams, audioOnly)
-                    buildMediaSource(selection.videoUrl, selection.audioUrl, selection.mergeRequired, metadata, item.videoId)
+                    val targetHeight = stateHolder.preferredQuality.value.takeIf { it > 0 } ?: 720
+                    val selection = repository.select(streams, audioOnly, targetHeight)
+                    // 비디오 트랙 전혀 없이 강등된 경우도 썸네일 폴백 (오디오 모드는 기존 폴백이 처리)
+                    stateHolder.setNoVideoTrack(selection.videoUrl == null && !audioOnly)
+                    // 자막 사이드로드 (CC): DefaultMediaSourceFactory 경유 — media3 1.4+의
+                    // 신규 자막 파이프라인이 TTML/VTT를 로드 시점에 파싱한다.
+                    // (SingleSampleMediaSource는 레거시 경로라 "Legacy decoding is disabled" 오류 — 실기기 검증에서 확인)
+                    if (!audioOnly && selection.videoUrl != null && streams.subtitles.isNotEmpty()) {
+                        val subtitleConfigs = streams.subtitles.map { t ->
+                            MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(t.url))
+                                .setMimeType(t.mimeType ?: androidx.media3.common.MimeTypes.TEXT_VTT)
+                                .setLanguage(t.languageTag)
+                                .setLabel(t.displayName)
+                                .build()
+                        }
+                        val videoItem = MediaItem.Builder()
+                            .setUri(selection.videoUrl)
+                            .setMediaId(item.videoId)
+                            .setMediaMetadata(metadata)
+                            .setSubtitleConfigurations(subtitleConfigs)
+                            .build()
+                        val videoWithSubs = DefaultMediaSourceFactory(mediaSourceFactory).createMediaSource(videoItem)
+                        if (selection.mergeRequired) {
+                            val audioItem = MediaItem.Builder()
+                                .setUri(selection.audioUrl).setMediaId(item.videoId).setMediaMetadata(metadata).build()
+                            MergingMediaSource(
+                                videoWithSubs,
+                                ProgressiveMediaSource.Factory(mediaSourceFactory).createMediaSource(audioItem),
+                            )
+                        } else {
+                            videoWithSubs
+                        }
+                    } else {
+                        buildMediaSource(selection.videoUrl, selection.audioUrl, selection.mergeRequired, metadata, item.videoId)
+                    }
                 }
                 if (streams.isLive) {
                     player.setMediaSource(source) // 라이브는 시작 위치 개념 없음 — 라이브 엣지에서 시작
@@ -467,6 +529,13 @@ class PlaybackService : MediaSessionService() {
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
+    }
+
+    /** 화질 전환 — 재생 위치 유지 (switchAudioMode와 동일 패턴, 2차 이관분) */
+    private fun switchQuality() {
+        val item = queue.currentItem ?: return
+        if (stateHolder.isLiveStream.value) return // 라이브는 HLS 가변 화질 — 선택 무의미
+        resolveAndPlay(item, startPositionMs = player.currentPosition)
     }
 
     /** 오디오/비디오 모드 전환 — 재생 위치 유지 (TC-PB-15) */

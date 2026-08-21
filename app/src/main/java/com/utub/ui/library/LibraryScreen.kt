@@ -89,7 +89,23 @@ fun LibraryScreen(viewModel: LibraryViewModel = hiltViewModel()) {
                 FilterChip(selected = section == 3, onClick = { section = 3 }, label = { Text("재생목록") })
                 FilterChip(selected = section == 4, onClick = { section = 4 }, label = { Text("다운로드") })
             }
-            if (!sectionEmpty) {
+        }
+
+        // 요약 줄 — 다운로드 섹션과 동일 스타일 (칩 행을 가리지 않게 분리, 사용자 요청)
+        if (section in 0..2 && !sectionEmpty) {
+            val count = when (section) {
+                0 -> recentPlays.size; 1 -> watchLater.size; else -> liked.size
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${count}개",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
                 TextButton(onClick = { confirmClear = true }) {
                     Text("모두 지우기", style = MaterialTheme.typography.labelMedium)
                 }

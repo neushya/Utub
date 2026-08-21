@@ -59,6 +59,7 @@ class LibraryViewModel @Inject constructor(
             QueueManager.Item(videoId, title, channelName, thumbnailUrl, durationMs),
         )
         connection.connect()
+        stateHolder.requestOpenPlayer()
     }
 
     /** 최근 재생 항목 재생 — 완료(95%↑)면 처음부터, 아니면 이어보기 (TC-DAT-04 규칙) */
@@ -74,5 +75,6 @@ class LibraryViewModel @Inject constructor(
             ),
         )
         connection.connect()
+        stateHolder.requestOpenPlayer()
     }
 }

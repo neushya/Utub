@@ -30,6 +30,35 @@ class PlayerStateHolder @Inject constructor() {
     val isLiveStream: StateFlow<Boolean> = _isLiveStream.asStateFlow()
     fun setLiveStream(live: Boolean) { _isLiveStream.value = live }
 
+    /** 플레이어 화면 열기 요청 (보관함·재생목록·다운로드에서 재생 시 — 유튜브 동일 UX) */
+    private val _openPlayerRequest = MutableStateFlow(0L)
+    val openPlayerRequest: StateFlow<Long> = _openPlayerRequest.asStateFlow()
+    fun requestOpenPlayer() { _openPlayerRequest.value += 1 }
+
+    /** 현재 재생물에 영상 트랙 없음 (오디오 저장본 등) — 검은 화면 대신 썸네일 폴백용 */
+    private val _noVideoTrack = MutableStateFlow(false)
+    val noVideoTrack: StateFlow<Boolean> = _noVideoTrack.asStateFlow()
+    fun setNoVideoTrack(none: Boolean) { _noVideoTrack.value = none }
+
+    // ── 화질 선택 (2차 이관분) — 0 = 자동(720p 이하 최고) ──────────────────
+    private val _preferredQuality = MutableStateFlow(0)
+    val preferredQuality: StateFlow<Int> = _preferredQuality.asStateFlow()
+    fun setPreferredQuality(height: Int) { _preferredQuality.value = height }
+
+    /** 현재 영상에서 고를 수 있는 화질 목록 (내림차순) */
+    private val _availableQualities = MutableStateFlow<List<Int>>(emptyList())
+    val availableQualities: StateFlow<List<Int>> = _availableQualities.asStateFlow()
+    fun setAvailableQualities(heights: List<Int>) { _availableQualities.value = heights }
+
+    // ── 자막 (CC, 2차 이관분) — null = 끔 ─────────────────────────────────
+    private val _subtitleLanguage = MutableStateFlow<String?>(null)
+    val subtitleLanguage: StateFlow<String?> = _subtitleLanguage.asStateFlow()
+    fun setSubtitleLanguage(languageTag: String?) { _subtitleLanguage.value = languageTag }
+
+    private val _availableSubtitles = MutableStateFlow<List<com.utub.extractor.SubtitleTrack>>(emptyList())
+    val availableSubtitles: StateFlow<List<com.utub.extractor.SubtitleTrack>> = _availableSubtitles.asStateFlow()
+    fun setAvailableSubtitles(tracks: List<com.utub.extractor.SubtitleTrack>) { _availableSubtitles.value = tracks }
+
     /** 취침 타이머 상태 (기술부채 2 — 잔여시간 UI 표시용, 서비스가 중계) */
     private val _sleepTimerState = MutableStateFlow<SleepTimerManager.State>(SleepTimerManager.State.Off)
     val sleepTimerState: StateFlow<SleepTimerManager.State> = _sleepTimerState.asStateFlow()

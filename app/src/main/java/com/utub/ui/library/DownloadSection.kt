@@ -74,6 +74,7 @@ class DownloadsViewModel @Inject constructor(
             QueueManager.Item(e.videoId, e.title, e.channelName, e.thumbnailUrl, e.durationMs),
         )
         connection.connect()
+        stateHolder.requestOpenPlayer()
     }
 
     fun remove(videoId: String) = viewModelScope.launch { manager.delete(videoId) }
@@ -178,7 +179,7 @@ fun DownloadSection(
                             channelName = e.channelName,
                             thumbnailUrl = e.thumbnailUrl,
                             durationMs = e.durationMs,
-                            subtitle = "${DownloadManager.formatBytes(e.sizeBytes)} · ${if (e.isAudioOnly) "오디오" else "영상"} · 오프라인",
+                            subtitle = "${if (e.isAudioOnly) "🎵 오디오" else "🎬 영상"} · ${DownloadManager.formatBytes(e.sizeBytes)} · 오프라인",
                             onClick = { viewModel.play(e) },
                             modifier = Modifier.weight(1f),
                         )

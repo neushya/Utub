@@ -2,7 +2,7 @@ package com.utub.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -48,6 +48,7 @@ fun MiniPlayerBar(
 
     if (currentItem == null) return
     var dragTotal by remember { mutableFloatStateOf(0f) }
+    var dragVertical by remember { mutableFloatStateOf(0f) }
 
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column {
@@ -64,12 +65,21 @@ fun MiniPlayerBar(
                         // 종료 임계값을 dp로 지정 — px 고정(구 150px)은 고밀도 화면에서
                         // 너무 민감해 오터치로 재생이 종료되는 문제가 있었음 (docs/09 ⑤ 보강)
                         val closeThresholdPx = 72.dp.toPx()
-                        detectHorizontalDragGestures(
-                            onDragStart = { dragTotal = 0f },
+                        // 세로 성분이 큰 드래그는 무시 — 바로 위 진행바 조작이 빗나가
+                        // 재생 종료로 이어지는 2차 피해 방지 (docs/09 ⑤ P2 보강)
+                        detectDragGestures(
+                            onDragStart = { dragTotal = 0f; dragVertical = 0f },
                             onDragEnd = {
-                                if (abs(dragTotal) > closeThresholdPx) viewModel.closePlayer()
+                                if (abs(dragTotal) > closeThresholdPx &&
+                                    abs(dragTotal) > abs(dragVertical) * 1.5f
+                                ) {
+                                    viewModel.closePlayer()
+                                }
                             },
-                        ) { _, dragAmount -> dragTotal += dragAmount }
+                        ) { _, dragAmount ->
+                            dragTotal += dragAmount.x
+                            dragVertical += dragAmount.y
+                        }
                     },
                 verticalAlignment = Alignment.CenterVertically,
             ) {

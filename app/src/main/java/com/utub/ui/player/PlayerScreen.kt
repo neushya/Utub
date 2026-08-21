@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -99,6 +100,13 @@ fun PlayerScreen(
     val playerVolume by viewModel.playerVolume.collectAsState()
     val sleepTimer by viewModel.sleepTimerState.collectAsState()
     val isLive by viewModel.isLiveStream.collectAsState()
+    val noVideoTrack by viewModel.noVideoTrack.collectAsState()
+    // 화질·자막 칩 (2차 이관분) — 전용 ViewModel, PlayerViewModel 무수정
+    val qcViewModel: QualityCcViewModel = hiltViewModel()
+    val quality by qcViewModel.quality.collectAsState()
+    val availableQualities by qcViewModel.availableQualities.collectAsState()
+    val subtitleLang by qcViewModel.subtitleLanguage.collectAsState()
+    val availableSubtitles by qcViewModel.availableSubtitles.collectAsState()
 
     // ── 재생목록에 저장 시트 (2차 2단계, A안) ──────────────────────────────
     var showSaveSheet by remember { mutableStateOf(false) }
@@ -224,7 +232,7 @@ fun PlayerScreen(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            if (audioOnly) {
+            if (audioOnly || noVideoTrack) {
                 AsyncImage(
                     model = currentItem?.thumbnailUrl,
                     contentDescription = null,
@@ -326,6 +334,15 @@ fun PlayerScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                         )
+                        if (!isLive && availableQualities.isNotEmpty()) {
+                            QualityChipCompact(quality, availableQualities, qcViewModel::setQuality, tint = Color.White)
+                        }
+                        if (!isLive && availableSubtitles.isNotEmpty()) {
+                            CcChipCompact(
+                                subtitleLang, availableSubtitles, qcViewModel::setSubtitle,
+                                inactiveTint = Color.White,
+                            )
+                        }
                     }
                 }
             }
@@ -370,6 +387,14 @@ fun PlayerScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // 라이브는 HLS 가변 화질이라 화질 선택 숨김
+                if (!isLive && availableQualities.isNotEmpty()) {
+                    QualityChipCompact(quality, availableQualities, qcViewModel::setQuality)
+                }
+                if (!isLive && availableSubtitles.isNotEmpty()) {
+                    CcChipCompact(subtitleLang, availableSubtitles, qcViewModel::setSubtitle)
+                }
+                Spacer(Modifier.width(8.dp))
                 Text(
                     if (isLive) "🔴 실시간" else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
                     style = MaterialTheme.typography.labelSmall,

@@ -84,6 +84,15 @@
 - 신규 파일 6: DownloadEntities/DownloadDaos/DownloadManager/DownloadService/DownloadSheet/DownloadSection. 연결점: DB v4·AppModule·Manifest·LibraryScreen·PlayerScreen·PlaybackService(로컬 분기).
 - 단위테스트 64/64 유지.
 
+## v0.7.0 기록 (2026-08-21 — 화질·자막 + 사용성 개선)
+
+- **화질 선택 (docs/06 2차 이관분)**: 시간 옆 [자동] 버튼 → 가용 화질 목록(자동~144p 자동 감지), 전환 시 재생 위치 유지(switchAudioMode 패턴 재사용). 1080p는 기존 병합 경로. 라이브는 숨김.
+- **자막 CC (docs/06 2차 이관분)**: NewPipe 자막 추출(언어당 1개, 한국어 우선 정렬) → 사이드로드, 트랙 선택만 변경(재생 무중단 토글). **결함 해결**: SingleSampleMediaSource 레거시 경로("Legacy decoding is disabled" TTML 오류) → DefaultMediaSourceFactory 신규 파이프라인으로 교체. **제약 확정**: "한국어 자동 번역"(tlang)은 유튜브 봇 차단(429)으로 제공 불가 — 실측 기록 후 제거.
+- **버튼 스타일 (사용자 요청)**: [자동]·[CC] 라운드 테두리 버튼화 + 세로 정렬·간격(8dp) 보정 — 확대 캡처 검증.
+- **미니플레이어 오터치 보강 (P2 잔여)**: 세로 성분 게이트(|dx|>|dy|×1.5) — 진행바 조작 빗나감이 재생 종료로 이어지는 2차 피해 방지 (dp 임계 72dp는 기적용 확인).
+- **사용성 3건 (사용자 발견)**: ① 보관함·재생목록·다운로드 재생 시 플레이어 화면 자동 열기(openPlayerRequest 신호 — onNewIntent 오배치 결함 잡아 onCreate로) ② 오디오 저장본 재생 시 검은 화면 → 썸네일 폴백(noVideoTrack) + 목록 🎵/🎬 구분 ③ "모두 지우기"를 칩 행에서 분리 → 목록 상단 요약 줄.
+- 신규 파일: QualityCcChips.kt. 단위테스트 64/64 유지.
+
 ## 다음 할 일 (다음 세션)
 
 1. 수동 통합테스트 잔여 항목 (docs/07 — 이어폰·전화·블루투스·백그라운드 모드) — **사용자 별도 진행 예정**
