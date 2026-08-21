@@ -21,6 +21,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 진단용 debug 빌드를 release(사용자 데이터)와 공존 설치하기 위한 별도 패키지
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
