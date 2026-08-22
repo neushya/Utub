@@ -41,14 +41,21 @@ fun HybridScreen(
     onVideoSelected: () -> Unit,
     webTarget: String,
     webNavTick: Int,
+    webViewHolder: WebViewHolder,
     onLogoClick: () -> Unit = {},
     viewModel: HybridWebViewModel = hiltViewModel(),
 ) {
     val controller = remember { WebController() }
     var webCanGoBack by remember { mutableStateOf(false) }
 
+    // tick "소비" 가드: 이 화면은 플레이어 복귀 때마다 재생성돼 LaunchedEffect가
+    // 다시 실행된다. 미처리 tick일 때만 이동해야 보존된 WebView(A안)의 현재
+    // 페이지를 홈/쇼츠 재로드로 덮어쓰지 않는다 (결함: 뒤로가기 시 홈 이동).
     LaunchedEffect(webTarget, webNavTick) {
-        if (webNavTick > 0 && webTarget.isNotEmpty()) controller.loadUrl(webTarget)
+        if (webNavTick > viewModel.lastHandledNavTick && webTarget.isNotEmpty()) {
+            viewModel.lastHandledNavTick = webNavTick
+            controller.loadUrl(webTarget)
+        }
     }
 
     BackHandler(enabled = webCanGoBack) { controller.goBack() }
@@ -92,6 +99,7 @@ fun HybridScreen(
                 onNav = viewModel::onNavigation,
                 onCanGoBackChanged = { webCanGoBack = it },
                 controller = controller,
+                holder = webViewHolder,
                 modifier = Modifier.fillMaxSize(),
             )
         }

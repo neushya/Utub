@@ -1,14 +1,9 @@
 package com.utub.webview
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.widget.Toast
+import android.view.ViewGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -17,7 +12,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 // C안: 유튜브 모바일 기본 홈 (비로그인 빈 피드는 유튜브 정책 — 검색 위주)
 const val YT_HOME = "https://m.youtube.com/"
 const val YT_SHORTS = "https://m.youtube.com/shorts"
-private const val UA =
+internal const val UA =
     "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/128.0.0.0 Mobile Safari/537.36"
 
@@ -28,13 +23,17 @@ class WebController {
     var goBack: () -> Unit = {}
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+/**
+ * 유튜브 탐색 WebView. 인스턴스는 [WebViewHolder]가 화면 전환에서도 보존하고,
+ * 여기서는 부착/탈착과 콜백 최신화만 담당한다 (A안 — 결함: 뒤로가기 시 홈 이동).
+ */
 @Composable
 fun YouTubeWebView(
     onWatch: (String) -> Unit,
     onNav: (String) -> Unit,
     onCanGoBackChanged: (Boolean) -> Unit,
     controller: WebController,
+    holder: WebViewHolder,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -43,70 +42,34 @@ fun YouTubeWebView(
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            // debug 빌드에서만 chrome://inspect DOM 검사 허용 (유튜브 웹 개편 시 셀렉터 확인용)
-            if (ctx.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-                WebView.setWebContentsDebuggingEnabled(true)
-            }
-            WebView(ctx).apply {
-                CookieManager.getInstance().setAcceptCookie(true)
-                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    databaseEnabled = true
-                    // false: 하단 네비 Shorts 탭(네이티브 버튼 → loadUrl)으로 연 쇼츠도
-                    // 소리 자동재생 허용 — 웹뷰는 네이티브 터치를 제스처로 인정하지 않아
-                    // true면 무음 자동재생 정책이 발동한다 (사용자 결함 보고, 2026-08-21)
-                    mediaPlaybackRequiresUserGesture = false
-                    userAgentString = UA
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                }
-                addJavascriptInterface(
-                    object {
-                        @JavascriptInterface fun onWatchClicked(url: String) = post {
-                            onWatch(url)
-                            onCanGoBackChanged(canGoBack())
-                        }
-                        @JavascriptInterface fun onNav(url: String) = post {
-                            onNav(url)
-                            onCanGoBackChanged(canGoBack())
-                        }
-                    },
-                    "UTub",
-                )
-                webViewClient = object : WebViewClient() {
-                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                        view.evaluateJavascript(injectJs, null)
-                    }
-                    override fun onPageFinished(view: WebView, url: String?) {
-                        view.evaluateJavascript(injectJs, null)
-                        onCanGoBackChanged(view.canGoBack())
-                    }
-                    override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
-                        onCanGoBackChanged(view.canGoBack())
-                    }
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        val u = request.url.toString()
-                        if (u.contains("accounts.google.com") || u.contains("/signin") || u.contains("ServiceLogin")) {
-                            Toast.makeText(context, "로그인은 지원하지 않아요. 보관함(로컬)을 이용해 주세요", Toast.LENGTH_SHORT).show()
-                            return true
-                        }
-                        // watch URL은 네이티브로 가로챔 (웹은 상세로 이동하지 않음)
-                        if (YouTubeUrlClassifier.classify(u) is YouTubeUrlClassifier.Kind.Watch) {
-                            onWatch(u)
-                            return true
-                        }
-                        return false
-                    }
-                }
-                controller.loadUrl = { target -> loadUrl(target) }
-                controller.canGoBack = { canGoBack() }
-                controller.goBack = { if (canGoBack()) goBack() }
-                loadUrl(YT_HOME)
-            }
+            val first = !holder.isCreated()
+            // 부착 전에 최신 콜백부터 — 보존된 WebView가 이전 방문의 람다를 부르지 않게
+            holder.onWatch = onWatch
+            holder.onNav = onNav
+            holder.onCanGoBackChanged = onCanGoBackChanged
+            val web = holder.obtain(ctx, injectJs)
+            // 이전 컴포지션의 부모가 남아 있으면 분리 (View는 단일 부모만 허용)
+            (web.parent as? ViewGroup)?.removeView(web)
+            holder.resume()
+            controller.loadUrl = { target -> web.loadUrl(target) }
+            controller.canGoBack = { web.canGoBack() }
+            controller.goBack = { if (web.canGoBack()) web.goBack() }
+            if (first) web.loadUrl(YT_HOME)
+            web
+        },
+        update = { web ->
+            // 재컴포지션마다 최신 람다 유지 + 복귀 직후 뒤로가기 가능 여부 동기화
+            holder.onWatch = onWatch
+            holder.onNav = onNav
+            holder.onCanGoBackChanged = onCanGoBackChanged
+            onCanGoBackChanged(web.canGoBack())
         },
     )
+
+    // 화면 이탈(플레이어·다른 탭) 시 웹 미디어·타이머 정지 — 숨은 쇼츠 소리 잔존 방지
+    DisposableEffect(Unit) {
+        onDispose { holder.pause() }
+    }
 }
 
 private fun loadAsset(context: Context, name: String): String =

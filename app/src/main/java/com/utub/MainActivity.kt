@@ -236,6 +236,21 @@ private fun UTubApp(
     var webTarget by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.utub.webview.YT_HOME) }
     var webNavTick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
+    // 유튜브 WebView 보존 홀더 (A안) — NavHost 밖에서 수명을 관리해 플레이어를
+    // 다녀와도 보던 페이지(채널·검색결과)가 유지된다. 컴포지션 종료 시 파괴.
+    val webViewHolder = androidx.compose.runtime.remember { com.utub.webview.WebViewHolder() }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { webViewHolder.destroy() }
+    }
+
+    // 영상 시청 중 화면 자동 꺼짐 방지 (결함: 재생 중 딤오프 → 소리만 재생).
+    // 오디오 전용은 "화면 끄고 듣기" 목적이라 제외, PIP는 시스템 관례대로 제외.
+    // 쇼츠 탭은 WebView 재생이라 네이티브 재생 상태와 무관하게 표시 중 유지.
+    val shortsTabVisible = currentRoute == "home" && webTarget == com.utub.webview.YT_SHORTS
+    com.utub.ui.shared.KeepScreenOnWhile(
+        active = (isPlayingNow && !audioOnlyNow && !isInPip) || shortsTabVisible,
+    )
+
     val start = when {
         startOnboarding -> "onboarding"
         openPlayerOnStart -> "player"
@@ -277,6 +292,7 @@ private fun UTubApp(
                         onVideoSelected = { navController.navigate("player") },
                         webTarget = webTarget,
                         webNavTick = webNavTick,
+                        webViewHolder = webViewHolder,
                         // 로고 탭 = 유튜브 홈 (하단 홈 탭과 동일 경로 → 탭 하이라이트 동기화)
                         onLogoClick = { webTarget = com.utub.webview.YT_HOME; webNavTick++ },
                     )

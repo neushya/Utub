@@ -18,6 +18,14 @@ class HybridWebViewModel @Inject constructor(
     private val shortsRecorder: ShortsHistoryRecorder,
 ) : ViewModel() {
 
+    /**
+     * 홈/쇼츠 탭 이동 신호(webNavTick) 중 처리 완료된 마지막 값.
+     * 화면 재생성 시 LaunchedEffect 재실행으로 같은 tick이 다시 loadUrl을
+     * 발화해 보존된 WebView의 현재 페이지를 덮어쓰는 것을 막는다 (A안).
+     * 홈 백스택 엔트리와 수명이 같아 플레이어를 다녀와도 유지된다.
+     */
+    var lastHandledNavTick: Int = 0
+
     /** 웹 내비게이션 수신 — 쇼츠 시청기록 감지 + 쇼츠 진입 시 네이티브 일시정지 */
     fun onNavigation(url: String) {
         // 앱이 화면에 없을 때(화면 꺼짐·다른 앱) 유튜브 웹이 백그라운드에서 일으키는
