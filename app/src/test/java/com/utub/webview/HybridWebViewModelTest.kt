@@ -42,4 +42,24 @@ class HybridWebViewModelTest {
         assertNull(id)
         assertNull(stateHolder.queue.currentItem)
     }
+
+    @Test
+    @DisplayName("웹 URL 추적: 백그라운드 게이트와 무관하게 lastWebUrl 갱신 (back 판정용)")
+    fun lastWebUrlTracked() {
+        assertEquals(YT_HOME, vm.lastWebUrl)
+        stateHolder.setAppInForeground(false) // 게이트가 닫혀 있어도 URL은 추적
+        vm.onNavigation("https://m.youtube.com/results?search_query=x")
+        assertEquals("https://m.youtube.com/results?search_query=x", vm.lastWebUrl)
+    }
+
+    @Test
+    @DisplayName("isYtHome: 홈은 쿼리/슬래시 변형 포함 true, 검색결과·쇼츠는 false")
+    fun homeDetection() {
+        assertEquals(true, isYtHome("https://m.youtube.com/"))
+        assertEquals(true, isYtHome("https://m.youtube.com"))
+        assertEquals(true, isYtHome("https://m.youtube.com/?noapp=1"))
+        assertEquals(false, isYtHome("https://m.youtube.com/results?search_query=x"))
+        assertEquals(false, isYtHome("https://m.youtube.com/shorts/abc"))
+        assertEquals(false, isYtHome("https://m.youtube.com/@BLACKPINK/videos"))
+    }
 }

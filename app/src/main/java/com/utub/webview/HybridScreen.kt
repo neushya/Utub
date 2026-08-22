@@ -58,7 +58,14 @@ fun HybridScreen(
         }
     }
 
-    BackHandler(enabled = webCanGoBack) { controller.goBack() }
+    // back 규칙 (유튜브 앱 동일 — "back은 앱 홈을 거쳐 종료" 원칙의 검색 플로우 확장):
+    // ① 홈이 아니고 웹 이력 있음 → 웹 뒤로가기
+    // ② 홈이 아니고 웹 이력 없음 → 유튜브 홈으로 (유튜브가 검색 진입을 replaceState로
+    //    처리해 이력이 안 쌓이는 경우 — 검색결과에서 back 시 앱 이탈 결함, 2026-08-23)
+    // ③ 홈 → 두 핸들러 모두 비활성 = 시스템 back (홈은 루트, 앱 이탈)
+    val webNotOnHome = !isYtHome(viewModel.lastWebUrl)
+    BackHandler(enabled = webCanGoBack && webNotOnHome) { controller.goBack() }
+    BackHandler(enabled = !webCanGoBack && webNotOnHome) { controller.loadUrl(YT_HOME) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 우리 헤더 (슬림 32dp): UTub 로고 + 이름. 검색은 유튜브 웹 자체 검색 사용
@@ -104,4 +111,10 @@ fun HybridScreen(
             )
         }
     }
+}
+
+/** 유튜브 홈 여부 — 쿼리/프래그먼트 무시하고 경로가 루트("/")인지로 판정 */
+internal fun isYtHome(url: String): Boolean {
+    val base = url.substringBefore('?').substringBefore('#').trimEnd('/')
+    return base == YT_HOME.trimEnd('/')
 }

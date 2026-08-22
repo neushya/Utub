@@ -1,5 +1,8 @@
 package com.utub.webview
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.utub.playback.PlayerConnection
 import com.utub.playback.PlayerStateHolder
@@ -26,8 +29,20 @@ class HybridWebViewModel @Inject constructor(
      */
     var lastHandledNavTick: Int = 0
 
+    /**
+     * 웹뷰가 현재 보여주는 URL (Compose 상태 — back 핸들러 활성 조건용).
+     * 유튜브가 홈→검색결과 전환을 replaceState로 처리해 웹 히스토리가 안 쌓이는
+     * 경우가 있어(검색 back 시 앱 이탈 결함, 2026-08-23), URL 기반으로
+     * "홈이 아니면 back = 홈 이동"을 판정한다. 플레이어를 다녀와도 유지.
+     */
+    var lastWebUrl: String by mutableStateOf(YT_HOME)
+        private set
+
     /** 웹 내비게이션 수신 — 쇼츠 시청기록 감지 + 쇼츠 진입 시 네이티브 일시정지 */
     fun onNavigation(url: String) {
+        // URL 추적은 게이트보다 먼저 — 백그라운드 중 내부 내비로 주소가 바뀌어도
+        // back 판정은 실제 표시 페이지 기준이어야 한다 (추적 누락 = 오판정 위험)
+        lastWebUrl = url
         // 앱이 화면에 없을 때(화면 꺼짐·다른 앱) 유튜브 웹이 백그라운드에서 일으키는
         // 내부 내비 이벤트(세션 갱신 등)로 오발동 금지 — "30분 뒤 일시정지" 결함(사용자 보고).
         if (!stateHolder.appInForeground.value) return
