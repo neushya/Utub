@@ -21,6 +21,7 @@
 
 | 버전 | 날짜 | 주요 내용 |
 |---|---|---|
+| [v0.9.5](https://github.com/neushya/Utub/releases/tag/v0.9.5) | 2026-08-23 | 결함 수정 — "내 소리 유지" ON에도 내비 안내 시 덕킹되던 문제 (시스템 자동 덕킹 옵트아웃 방식 전환) |
 | [v0.9.4](https://github.com/neushya/Utub/releases/tag/v0.9.4) | 2026-08-23 | 개선 — 다른 앱 소리에도 내 소리 유지 설정(내비 안내 덕킹 방지, 전화 예외) · 설정>정보 버전 자동 표기 |
 | [v0.9.3](https://github.com/neushya/Utub/releases/tag/v0.9.3) | 2026-08-23 | 개선 — 검색결과에서 뒤로가기 시 앱 이탈 대신 홈 경유 (back 규칙 유튜브 앱 동일화) |
 | [v0.9.2](https://github.com/neushya/Utub/releases/tag/v0.9.2) | 2026-08-22 | 결함 수정 — 재생 중 화면 딤오프 · 플레이어 뒤로가기 시 탐색 위치 유실 |

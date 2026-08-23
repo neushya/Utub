@@ -106,10 +106,48 @@ class PlaybackService : MediaSessionService() {
             }
         } else null
 
+    // ── 수동 포커스 (v0.9.5 — 사용자 결함 보고: 내비 안내 시 여전히 덕킹) ──
+    // 포커스 "비참여"는 일시정지는 막지만, Android 자동 덕킹은 포커스 승자 외의
+    // "소리 내는 모든 앱"을 시스템이 직접 덕킹해 회피 불가(실측: 스택 미등재인데 덕킹).
+    // 해법: 포커스를 정식 보유(GAIN)하며 setWillPauseWhenDucked(true)로 자동 덕킹
+    // 옵트아웃 → 시스템이 덕킹을 콜백으로 위임 → 우리는 의도적으로 무시(볼륨 유지).
+    private var manualFocusRequest: android.media.AudioFocusRequest? = null
+
+    /** 의도적 무시 — 덕킹·일시정지 요구에 반응하지 않음이 이 모드의 목적. 전화는 MODE 리스너 담당 */
+    private val manualFocusListener = AudioManager.OnAudioFocusChangeListener { }
+
+    private fun acquireManualFocus() {
+        if (manualFocusRequest != null) return
+        val request = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build(),
+            )
+            .setWillPauseWhenDucked(true)
+            .setOnAudioFocusChangeListener(manualFocusListener)
+            .build()
+        getSystemService(AudioManager::class.java)?.requestAudioFocus(request)
+        manualFocusRequest = request
+    }
+
+    private fun releaseManualFocus() {
+        manualFocusRequest?.let { request ->
+            runCatching { getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(request) }
+        }
+        manualFocusRequest = null
+    }
+
     /** 포커스 정책 전환 — attrs 동일 유지라 재생 무중단, handleAudioFocus만 변경 */
     private fun applyKeepAudioOverOthers(on: Boolean) {
         keepAudioOverOthers = on
         player.setAudioAttributes(mediaAudioAttributes, /* handleAudioFocus = */ !on)
+        if (on) {
+            if (player.isPlaying) acquireManualFocus()
+        } else {
+            releaseManualFocus()
+        }
         val am = getSystemService(AudioManager::class.java) ?: return
         val listener = audioModeListener
         if (android.os.Build.VERSION.SDK_INT >= 31 && listener != null) {
@@ -442,6 +480,10 @@ class PlaybackService : MediaSessionService() {
             } else {
                 startPeriodicPersist()
             }
+            // keepAudio ON: 재생 중일 때만 수동 포커스 보유 (정지 시 반납 — 잔존 방지)
+            if (keepAudioOverOthers) {
+                if (isPlaying) acquireManualFocus() else releaseManualFocus()
+            }
         }
     }
 
@@ -658,6 +700,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         recordAndPersist()
+        releaseManualFocus() // 수동 포커스 잔존 방지 (keepAudio ON 상태로 종료 시)
         // 통화 감지 리스너 잔존 방지 (keepAudio ON 상태로 종료 시)
         val listener = audioModeListener
         if (android.os.Build.VERSION.SDK_INT >= 31 && audioModeListenerRegistered && listener != null) {

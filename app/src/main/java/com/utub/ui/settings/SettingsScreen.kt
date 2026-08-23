@@ -152,7 +152,7 @@ fun SettingsScreen(
         SwitchRow(
             "다른 앱 소리에도 내 소리 유지",
             "내비 안내 등 다른 앱 소리가 나도 볼륨이 줄거나 멈추지 않아요 (전화는 예외). " +
-                "다른 앱 소리와 섞여 들리며, 다른 미디어 앱을 틀어도 자동으로 멈추지 않게 돼요. " +
+                "다른 앱 소리와 섞여 들리고, 다른 미디어 앱과 동시 재생될 수 있어요. " +
                 "내비 안내음까지 끄려면 해당 내비 앱 설정에서 음성 안내 음량을 조절하세요",
             checked = settings.keepAudioOverOthers, onChange = viewModel::setKeepAudioOverOthers,
         )
