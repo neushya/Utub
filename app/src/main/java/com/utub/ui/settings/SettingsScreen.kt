@@ -42,6 +42,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
+    private val playerConnection: com.utub.playback.PlayerConnection,
 ) : ViewModel() {
     val settings = repository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UTubSettings())
@@ -51,6 +52,12 @@ class SettingsViewModel @Inject constructor(
     fun setDefaultAudioMode(v: Boolean) = viewModelScope.launch { repository.setDefaultAudioMode(v) }
     fun setClipboardDetect(v: Boolean) = viewModelScope.launch { repository.setClipboardDetect(v) }
     fun setContentCountry(code: String) = viewModelScope.launch { repository.setContentCountry(code) }
+
+    /** 다른 앱 소리에도 볼륨 유지 — 영속화 + 재생 중이면 즉시 반영 */
+    fun setKeepAudioOverOthers(v: Boolean) = viewModelScope.launch {
+        repository.setKeepAudioOverOthers(v)
+        playerConnection.setKeepAudioOverOthers(v)
+    }
 }
 
 /** 콘텐츠 국가 선택지 (사용자 요청, 2026-08-17) */
@@ -142,6 +149,13 @@ fun SettingsScreen(
             "클립보드 링크 감지", "복사한 유튜브 링크를 홈에서 바로 재생 제안",
             checked = settings.clipboardDetect, onChange = viewModel::setClipboardDetect,
         )
+        SwitchRow(
+            "다른 앱 소리에도 내 소리 유지",
+            "내비 안내 등 다른 앱 소리가 나도 볼륨이 줄거나 멈추지 않아요 (전화는 예외). " +
+                "다른 앱 소리와 섞여 들리며, 다른 미디어 앱을 틀어도 자동으로 멈추지 않게 돼요. " +
+                "내비 안내음까지 끄려면 해당 내비 앱 설정에서 음성 안내 음량을 조절하세요",
+            checked = settings.keepAudioOverOthers, onChange = viewModel::setKeepAudioOverOthers,
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -171,7 +185,9 @@ fun SettingsScreen(
 
         SectionTitle("정보")
         Text(
-            "UTub 0.4.0 · 개인용 빌드\nNewPipeExtractor 기반 · 유튜브 규격 변경 시 업데이트 필요할 수 있음",
+            // 버전은 빌드 설정에서 자동 주입 — 하드코딩 금지 (구버전 표기 결함, 2026-08-23)
+            "UTub ${com.utub.BuildConfig.VERSION_NAME} · 개인용 빌드\n" +
+                "NewPipeExtractor 기반 · 유튜브 규격 변경 시 업데이트 필요할 수 있음",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),

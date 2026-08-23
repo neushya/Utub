@@ -39,4 +39,12 @@ class SettingsRepositoryTest {
         assertEquals(BackgroundMode.HEADSET_ONLY, repository.settings.first().backgroundMode)
         repository.setBackgroundMode(BackgroundMode.ALWAYS) // 원복
     }
+
+    @Test
+    fun `다른 앱 소리에도 내 소리 유지 - 기본 꺼짐, 저장·방출`(): Unit = runBlocking {
+        assertFalse(repository.settings.first().keepAudioOverOthers)
+        repository.setKeepAudioOverOthers(true)
+        assertTrue(repository.settings.first().keepAudioOverOthers)
+        repository.setKeepAudioOverOthers(false) // 원복
+    }
 }

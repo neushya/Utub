@@ -93,6 +93,12 @@ class PlayerConnection @Inject constructor(
         Bundle().apply { putFloat(PlaybackService.KEY_VOLUME, gain) },
     )
 
+    /** 다른 앱 소리에도 볼륨 유지 (오디오 포커스 비협조) — 즉시 반영 */
+    fun setKeepAudioOverOthers(enabled: Boolean) = sendCustomCommand(
+        PlaybackService.CMD_SET_KEEP_AUDIO,
+        Bundle().apply { putBoolean(PlaybackService.KEY_ENABLED, enabled) },
+    )
+
     private fun sendCustomCommand(action: String, args: Bundle) {
         controller?.sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args)
     }

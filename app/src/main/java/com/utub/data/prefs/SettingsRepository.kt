@@ -24,6 +24,9 @@ data class UTubSettings(
     val sleepTimerMinutes: Int = 0, // 0 = 끔, -1 = 현재 영상 끝까지
     val contentCountry: String = "AUTO", // 피드/검색 노출 국가. AUTO = 기기 설정 따름
     val playerVolume: Float = 1.0f, // 플레이어 전용 볼륨 게인(0.0~1.0). 기기 볼륨과 별개
+    // 다른 앱 소리(내비 안내 등)에도 볼륨 유지 — 오디오 포커스 비협조 모드 (개선요청 2026-08-23)
+    // false(기본) = 현행: 다른 앱 소리 시 자동 덕킹/일시정지
+    val keepAudioOverOthers: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "utub_settings")
@@ -39,6 +42,7 @@ class SettingsRepository(private val context: Context) {
         val SLEEP_TIMER_MIN = intPreferencesKey("sleep_timer_minutes")
         val CONTENT_COUNTRY = stringPreferencesKey("content_country")
         val PLAYER_VOLUME = floatPreferencesKey("player_volume")
+        val KEEP_AUDIO_OVER_OTHERS = booleanPreferencesKey("keep_audio_over_others")
     }
 
     val settings: Flow<UTubSettings> = context.dataStore.data.map { p ->
@@ -52,6 +56,7 @@ class SettingsRepository(private val context: Context) {
             sleepTimerMinutes = p[Keys.SLEEP_TIMER_MIN] ?: 0,
             contentCountry = p[Keys.CONTENT_COUNTRY] ?: "AUTO",
             playerVolume = (p[Keys.PLAYER_VOLUME] ?: 1.0f).coerceIn(0f, 1f),
+            keepAudioOverOthers = p[Keys.KEEP_AUDIO_OVER_OTHERS] ?: false,
         )
     }
 
@@ -78,4 +83,7 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPlayerVolume(gain: Float) =
         context.dataStore.edit { it[Keys.PLAYER_VOLUME] = gain.coerceIn(0f, 1f) }
+
+    suspend fun setKeepAudioOverOthers(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.KEEP_AUDIO_OVER_OTHERS] = enabled }
 }

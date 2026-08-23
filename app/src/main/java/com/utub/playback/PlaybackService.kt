@@ -77,6 +77,53 @@ class PlaybackService : MediaSessionService() {
      */
     private var userVolume = 1.0f
 
+    // ── 다른 앱 소리에도 볼륨 유지 (오디오 포커스 비협조, 개선요청 2026-08-23) ──
+    // ON이면 포커스를 요청/반응하지 않아 내비 안내 등에 덕킹·일시정지되지 않는다.
+    // 전화만 예외: 통화 상태(MODE) 감지로 일시정지, 통화 종료 시 자동 재개 (API 31+).
+    private val mediaAudioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+        .build()
+    private var keepAudioOverOthers = false
+    private var pausedByCall = false
+    private var audioModeListenerRegistered = false
+    private val audioModeListener =
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            AudioManager.OnModeChangedListener { mode ->
+                when (mode) {
+                    AudioManager.MODE_RINGTONE,
+                    AudioManager.MODE_IN_CALL,
+                    AudioManager.MODE_IN_COMMUNICATION,
+                    -> if (keepAudioOverOthers && player.isPlaying) {
+                        pausedByCall = true
+                        player.pause()
+                    }
+                    AudioManager.MODE_NORMAL -> if (pausedByCall) {
+                        pausedByCall = false
+                        player.play()
+                    }
+                }
+            }
+        } else null
+
+    /** 포커스 정책 전환 — attrs 동일 유지라 재생 무중단, handleAudioFocus만 변경 */
+    private fun applyKeepAudioOverOthers(on: Boolean) {
+        keepAudioOverOthers = on
+        player.setAudioAttributes(mediaAudioAttributes, /* handleAudioFocus = */ !on)
+        val am = getSystemService(AudioManager::class.java) ?: return
+        val listener = audioModeListener
+        if (android.os.Build.VERSION.SDK_INT >= 31 && listener != null) {
+            if (on && !audioModeListenerRegistered) {
+                am.addOnModeChangedListener(mainExecutor, listener)
+                audioModeListenerRegistered = true
+            } else if (!on && audioModeListenerRegistered) {
+                runCatching { am.removeOnModeChangedListener(listener) }
+                audioModeListenerRegistered = false
+                pausedByCall = false
+            }
+        }
+    }
+
     private val queue get() = stateHolder.queue
 
     private val screenOffReceiver = object : BroadcastReceiver() {
@@ -97,11 +144,8 @@ class PlaybackService : MediaSessionService() {
 
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build(),
-                /* handleAudioFocus = */ true, // TC-PB-11/12: 전화·덕킹 자동 처리
+                mediaAudioAttributes,
+                /* handleAudioFocus = */ true, // TC-PB-11/12: 전화·덕킹 자동 처리 (기본)
             )
             .setHandleAudioBecomingNoisy(true) // TC-PB-13: 이어폰 분리 시 pause
             .setWakeMode(C.WAKE_MODE_NETWORK)  // 화면 꺼짐 재생 유지
@@ -159,10 +203,12 @@ class PlaybackService : MediaSessionService() {
             onExpired = { player.pause() },
         )
 
-        // 저장된 플레이어 볼륨 초기 적용 (재시작 후 유지)
+        // 저장된 플레이어 볼륨 + 오디오 포커스 정책 초기 적용 (재시작 후 유지)
         scope.launch {
-            userVolume = settingsRepository.settings.first().playerVolume.coerceIn(0f, 1f)
+            val s = settingsRepository.settings.first()
+            userVolume = s.playerVolume.coerceIn(0f, 1f)
             player.volume = userVolume
+            if (s.keepAudioOverOthers) applyKeepAudioOverOthers(true)
         }
 
         // 타이머 상태를 UI로 중계 (기술부채 2 — 잔여시간 표시)
@@ -496,6 +542,7 @@ class PlaybackService : MediaSessionService() {
                 .add(SessionCommand(CMD_SLEEP_TIMER, Bundle.EMPTY))
                 .add(SessionCommand(CMD_APP_BACKGROUND, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SET_VOLUME, Bundle.EMPTY))
+                .add(SessionCommand(CMD_SET_KEEP_AUDIO, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(sessionCommands)
@@ -526,6 +573,7 @@ class PlaybackService : MediaSessionService() {
                     userVolume = args.getFloat(KEY_VOLUME, 1f).coerceIn(0f, 1f)
                     player.volume = userVolume
                 }
+                CMD_SET_KEEP_AUDIO -> applyKeepAudioOverOthers(args.getBoolean(KEY_ENABLED, false))
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
@@ -610,6 +658,11 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         recordAndPersist()
+        // 통화 감지 리스너 잔존 방지 (keepAudio ON 상태로 종료 시)
+        val listener = audioModeListener
+        if (android.os.Build.VERSION.SDK_INT >= 31 && audioModeListenerRegistered && listener != null) {
+            runCatching { getSystemService(AudioManager::class.java)?.removeOnModeChangedListener(listener) }
+        }
         unregisterReceiver(screenOffReceiver)
         persistJob?.cancel()
         mediaSession?.release()
@@ -626,6 +679,7 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_STOP_ALL = "com.utub.action.STOP_ALL"
         const val ACTION_PLAYBACK_STOPPED = "com.utub.action.PLAYBACK_STOPPED"
         const val CMD_SET_VOLUME = "com.utub.SET_VOLUME"
+        const val CMD_SET_KEEP_AUDIO = "com.utub.SET_KEEP_AUDIO"
         const val KEY_ENABLED = "enabled"
         const val KEY_MINUTES = "minutes"
         const val KEY_VOLUME = "volume"
