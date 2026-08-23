@@ -24,12 +24,15 @@ android {
         debug {
             // 진단용 debug 빌드를 release(사용자 데이터)와 공존 설치하기 위한 별도 패키지
             applicationIdSuffix = ".debug"
+            // 런처에서 정식 앱과 구분 (사용자 요청 2026-08-23) — 매니페스트 label이 참조
+            resValue("string", "app_name", "UTub-Dev")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug") // 개인용 사이드로딩: debug 키 서명
+            resValue("string", "app_name", "UTub")
         }
     }
     compileOptions {
