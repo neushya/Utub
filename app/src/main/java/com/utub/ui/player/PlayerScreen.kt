@@ -147,6 +147,9 @@ fun PlayerScreen(
     androidx.compose.runtime.LaunchedEffect(ptControlsVisible, isPlaying) {
         if (ptControlsVisible && isPlaying) { kotlinx.coroutines.delay(3_000); ptControlsVisible = false }
     }
+    androidx.compose.runtime.LaunchedEffect(fsControlsVisible, isPlaying, isFullscreen) {
+        if (isFullscreen && fsControlsVisible && isPlaying) { kotlinx.coroutines.delay(3_000); fsControlsVisible = false }
+    }
     fun setFullscreen(on: Boolean) {
         isFullscreen = on
         fsControlsVisible = true
@@ -266,15 +269,19 @@ fun PlayerScreen(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            // 유튜브 앱식 중앙 ▶/⏸ (일반 화면 전용 — 전체화면은 자체 오버레이 보유)
-            if (!surfaceOnly && ptControlsVisible) {
+            // 유튜브 앱식 중앙 ▶/⏸ — 일반·전체화면 공통 (통일성, 사용자 요구)
+            val centerVisible =
+                if (isFullscreen) !isInPip && fsControlsVisible
+                else !surfaceOnly && ptControlsVisible
+            if (centerVisible) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .background(Color.Black.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape)
                         .clickable {
                             viewModel.playPause()
-                            ptControlsVisible = true // 조작 직후엔 유지 (자동 숨김 타이머 재시작)
+                            // 조작 직후엔 유지 (자동 숨김 타이머 재시작)
+                            if (isFullscreen) fsControlsVisible = true else ptControlsVisible = true
                         }
                         .padding(14.dp)
                         .zIndex(2f),
@@ -383,12 +390,6 @@ fun PlayerScreen(
                         }
                         IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Replay10, "10초 뒤로", tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
-                        FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(42.dp)) {
-                            Icon(
-                                if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                if (isPlaying) "일시정지" else "재생",
-                            )
                         }
                         IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Forward10, "10초 앞으로", tint = Color.White, modifier = Modifier.size(20.dp))
