@@ -296,13 +296,20 @@ private fun UTubApp(
                         // 로고 탭 = 유튜브 홈 (하단 홈 탭과 동일 경로 → 탭 하이라이트 동기화)
                         onLogoClick = { webTarget = com.utub.webview.YT_HOME; webNavTick++ },
                         onSearchClick = { navController.navigate("search") { launchSingleTop = true } },
+                        // 웹 돋보기 검색 감지 → 네이티브 결과로 전환 + 웹뷰는 홈으로 리셋 (back 동선 보호)
+                        onWebSearch = { q ->
+                            webTarget = com.utub.webview.YT_HOME
+                            webNavTick++
+                            navController.navigate("search?q=" + android.net.Uri.encode(q)) { launchSingleTop = true }
+                        },
                     )
                 }
                 composable("library") { com.utub.ui.library.LibraryScreen() }
-                composable("search") {
+                composable("search?q={q}") { entry ->
                     SearchScreen(
                         onBack = { navController.navigate("home") { popUpTo("home") { inclusive = false } } },
                         onVideoPlayed = { navController.navigate("player") { launchSingleTop = true } },
+                        initialQuery = entry.arguments?.getString("q").orEmpty(),
                     )
                 }
                 composable("settings_tab") { SettingsScreen(onBack = { navController.navigate("home") }) }

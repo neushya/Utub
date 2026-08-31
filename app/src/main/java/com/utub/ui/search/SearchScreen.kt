@@ -45,6 +45,7 @@ import com.utub.ui.shared.VideoCard
 fun SearchScreen(
     onBack: () -> Unit,
     onVideoPlayed: () -> Unit,
+    initialQuery: String = "",
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsState()
@@ -53,7 +54,15 @@ fun SearchScreen(
     val history by viewModel.history.collectAsState()
     val focusRequester = FocusRequester()
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(Unit) {
+        if (initialQuery.isNotBlank()) {
+            // 웹 돋보기 검색에서 넘어온 경우 — 검색어 채우고 즉시 결과 (키보드 불필요)
+            viewModel.onQueryChange(initialQuery)
+            viewModel.submitSearch(initialQuery)
+        } else {
+            focusRequester.requestFocus()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.CenterVertically) {

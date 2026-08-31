@@ -20,6 +20,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +49,7 @@ fun HybridScreen(
     webViewHolder: WebViewHolder,
     onLogoClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    onWebSearch: (String) -> Unit = {},
     viewModel: HybridWebViewModel = hiltViewModel(),
 ) {
     val controller = remember { WebController() }
@@ -70,6 +73,15 @@ fun HybridScreen(
     val webNotOnHome = !isYtHome(viewModel.lastWebUrl)
     BackHandler(enabled = webCanGoBack && webNotOnHome) { controller.goBack() }
     BackHandler(enabled = !webCanGoBack && webNotOnHome) { controller.loadUrl(YT_HOME) }
+
+    // 웹 돋보기 검색 → 네이티브 검색 화면으로 전환 (소비 후 초기화 — 중복 발화 방지)
+    val webSearch by viewModel.webSearchQuery.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(webSearch) {
+        webSearch?.let { q ->
+            viewModel.consumeWebSearch()
+            onWebSearch(q)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // 우리 헤더 (슬림 32dp): UTub 로고 + 이름. 검색은 유튜브 웹 자체 검색 사용
