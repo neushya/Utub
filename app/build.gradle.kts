@@ -20,6 +20,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // 공용 서명 키 (저장소 포함): 어느 PC에서 빌드해도 동일 서명 —
+        // PC별 debug 키 불일치로 업데이트 설치가 거부되던 문제 영구 해결 (2026-08-28)
+        create("shared") {
+            storeFile = file("../keystore/utub-shared.jks")
+            storePassword = "utub-shared"
+            keyAlias = "utub"
+            keyPassword = "utub-shared"
+        }
+    }
     buildTypes {
         debug {
             // 진단용 debug 빌드를 release(사용자 데이터)와 공존 설치하기 위한 별도 패키지
@@ -31,7 +41,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug") // 개인용 사이드로딩: debug 키 서명
+            signingConfig = signingConfigs.getByName("shared") // 공용 키 — PC 무관 동일 서명
             resValue("string", "app_name", "UTub")
         }
     }

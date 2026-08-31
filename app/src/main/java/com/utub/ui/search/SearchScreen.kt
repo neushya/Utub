@@ -149,13 +149,15 @@ fun SearchScreen(
                 }
             }
             is SearchViewModel.ResultState.Results -> LazyColumn {
+                // 유튜브 앱식 세로 카드 (5차 — 사용자 요구: 썸네일 아래 제목)
                 items(state.items, key = { it.videoId }) { video ->
-                    VideoCard(
+                    com.utub.ui.shared.BigVideoCard(
                         title = video.title,
                         channelName = video.channelName,
                         thumbnailUrl = video.thumbnailUrl,
                         durationMs = video.durationMs,
-                        subtitle = listOfNotNull(
+                        avatarUrl = video.uploaderAvatarUrl,
+                        metaText = listOfNotNull(
                             video.viewCount?.let { "조회수 ${formatViews(it)}" },
                             video.uploadedText,
                         ).joinToString(" · ").ifBlank { null },

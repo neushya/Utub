@@ -5,6 +5,8 @@ package com.utub.ui.player
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +66,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +84,7 @@ import com.utub.ui.shared.formatDuration
 @Composable
 fun PlayerScreen(
     onCollapse: () -> Unit,
+    onOpenChannel: (String) -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel(),
     isInPip: Boolean = false,
 ) {
@@ -115,6 +120,12 @@ fun PlayerScreen(
     }
     // ── 오프라인 저장 시트 (3차) ──────────────────────────────────────────
     var showDownloadSheet by remember { mutableStateOf(false) }
+    // ── 채널 정보 + 댓글 (5차-C) ─────────────────────────────────────────
+    val streamDetails by viewModel.streamDetails.collectAsState()
+    var showComments by remember { mutableStateOf(false) }
+    if (showComments) {
+        currentItem?.let { CommentsSheet(videoId = it.videoId, onDismiss = { showComments = false }) }
+    }
     if (showDownloadSheet) {
         currentItem?.let {
             DownloadSheet(item = it, isLive = isLive, onDismiss = { showDownloadSheet = false })
@@ -125,6 +136,12 @@ fun PlayerScreen(
     val activity = LocalContext.current.findActivity()
     var isFullscreen by remember { mutableStateOf(false) }
     var fsControlsVisible by remember { mutableStateOf(true) }
+    // 더블탭 ±10초 피드백 (null = 숨김, true = 앞으로) — 요구: 좌/우 더블탭 시크
+    var seekFlash by remember { mutableStateOf<Boolean?>(null) }
+    var videoWidthPx by remember { androidx.compose.runtime.mutableIntStateOf(1) }
+    androidx.compose.runtime.LaunchedEffect(seekFlash) {
+        if (seekFlash != null) { kotlinx.coroutines.delay(700); seekFlash = null }
+    }
     fun setFullscreen(on: Boolean) {
         isFullscreen = on
         fsControlsVisible = true
@@ -223,15 +240,40 @@ fun PlayerScreen(
                     else Modifier.aspectRatio(16f / 9f),
                 )
                 .background(Color.Black)
-                .then(
-                    if (isFullscreen) Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { fsControlsVisible = !fsControlsVisible }
-                    else Modifier,
-                ),
+                .onSizeChanged { videoWidthPx = it.width }
+                .pointerInput(isFullscreen, isLive) {
+                    // 더블탭: 좌=10초 뒤로 / 우=10초 앞으로 (유튜브 앱 동일, 라이브 제외)
+                    // 싱글탭: 전체화면 컨트롤 토글 (기존 동작 유지 — 표준 API로 더블탭과 분리)
+                    detectTapGestures(
+                        // 싱글탭: 일반 화면 = 재생/일시정지 (사용자 요청) / 전체화면 = 컨트롤 토글
+                        onTap = {
+                            if (isFullscreen) fsControlsVisible = !fsControlsVisible
+                            else viewModel.playPause()
+                        },
+                        onDoubleTap = { offset ->
+                            if (!isLive || durationMs > 0) {
+                                val forward = offset.x > videoWidthPx / 2
+                                viewModel.seekBy(if (forward) 10_000 else -10_000)
+                                seekFlash = forward
+                            }
+                        },
+                    )
+                },
             contentAlignment = Alignment.Center,
         ) {
+            seekFlash?.let { forward ->
+                Text(
+                    if (forward) "10초 ⏩" else "⏪ 10초",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .align(if (forward) Alignment.CenterEnd else Alignment.CenterStart)
+                        .padding(horizontal = 32.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .zIndex(1f),
+                )
+            }
             if (audioOnly || noVideoTrack) {
                 AsyncImage(
                     model = currentItem?.thumbnailUrl,
@@ -277,9 +319,9 @@ fun PlayerScreen(
                         .padding(horizontal = 20.dp, vertical = 4.dp),
                 ) {
                     Slider(
-                        value = if (isLive) 1f else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
-                        onValueChange = { f -> if (!isLive && durationMs > 0) viewModel.seekTo((f * durationMs).toLong()) },
-                        enabled = !isLive,
+                        value = if (durationMs > 0) positionMs.toFloat() / durationMs else if (isLive) 1f else 0f,
+                        onValueChange = { f -> if (durationMs > 0) viewModel.seekTo((f * durationMs).toLong()) },
+                        enabled = !isLive || durationMs > 0,
                         modifier = Modifier.height(14.dp),
                         thumb = {
                             Box(
@@ -313,7 +355,7 @@ fun PlayerScreen(
                         IconButton(onClick = viewModel::previous, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.SkipPrevious, "이전", tint = Color.White)
                         }
-                        IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Replay10, "10초 뒤로", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(42.dp)) {
@@ -322,7 +364,7 @@ fun PlayerScreen(
                                 if (isPlaying) "일시정지" else "재생",
                             )
                         }
-                        IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive, modifier = Modifier.size(36.dp)) {
+                        IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(36.dp)) {
                             Icon(Icons.Default.Forward10, "10초 앞으로", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         IconButton(onClick = viewModel::next, modifier = Modifier.size(36.dp)) {
@@ -330,9 +372,11 @@ fun PlayerScreen(
                         }
                         Spacer(Modifier.weight(1f))
                         Text(
-                            if (isLive) "🔴 실시간" else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                            if (isLive) (if (durationMs <= 0 || durationMs - positionMs < 15_000) "🔴 실시간" else "실시간으로 ▶")
+                            else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
+                            modifier = if (isLive) Modifier.clickable { viewModel.seekToLiveEdge() } else Modifier,
                         )
                         if (!isLive && availableQualities.isNotEmpty()) {
                             QualityChipCompact(quality, availableQualities, qcViewModel::setQuality, tint = Color.White)
@@ -395,19 +439,23 @@ fun PlayerScreen(
                     CcChipCompact(subtitleLang, availableSubtitles, qcViewModel::setSubtitle)
                 }
                 Spacer(Modifier.width(8.dp))
+                // 라이브: 엣지 근접 = "🔴 실시간"(빨강) / 뒤로 돌린 상태 = "실시간으로 ▶"(탭하면 복귀)
+                val atLiveEdge = !isLive || durationMs <= 0 || durationMs - positionMs < 15_000
                 Text(
-                    if (isLive) "🔴 실시간" else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                    if (isLive) (if (atLiveEdge) "🔴 실시간" else "실시간으로 ▶")
+                    else "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (isLive) MaterialTheme.colorScheme.primary
+                    color = if (isLive && atLiveEdge) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = if (isLive) Modifier.clickable { viewModel.seekToLiveEdge() } else Modifier,
                 )
             }
             Slider(
-                value = if (isLive) 1f else if (durationMs > 0) positionMs.toFloat() / durationMs else 0f,
+                value = if (durationMs > 0) positionMs.toFloat() / durationMs else if (isLive) 1f else 0f,
                 onValueChange = { fraction ->
-                    if (!isLive && durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
+                    if (durationMs > 0) viewModel.seekTo((fraction * durationMs).toLong())
                 },
-                enabled = !isLive,
+                enabled = !isLive || durationMs > 0, // 라이브 타임시프트 (DVR 윈도우 있을 때)
                 modifier = Modifier.height(14.dp),
                 thumb = {
                     Box(
@@ -458,7 +506,7 @@ fun PlayerScreen(
             IconButton(onClick = viewModel::previous, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.SkipPrevious, "이전", modifier = Modifier.size(20.dp))
             }
-            IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive, modifier = Modifier.size(30.dp)) {
+            IconButton(onClick = { viewModel.seekBy(-10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.Replay10, "10초 뒤로", modifier = Modifier.size(16.dp))
             }
             FilledIconButton(onClick = viewModel::playPause, modifier = Modifier.size(38.dp)) {
@@ -468,7 +516,7 @@ fun PlayerScreen(
                     modifier = Modifier.size(20.dp),
                 )
             }
-            IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive, modifier = Modifier.size(30.dp)) {
+            IconButton(onClick = { viewModel.seekBy(10_000) }, enabled = !isLive || durationMs > 0, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.Forward10, "10초 앞으로", modifier = Modifier.size(16.dp))
             }
             IconButton(onClick = viewModel::next, modifier = Modifier.size(30.dp)) {
@@ -499,6 +547,14 @@ fun PlayerScreen(
             if (!isLive) SpeedChipCompact(speed = speed, onSpeedSelected = viewModel::setSpeed)
             SleepTimerChip(state = sleepTimer, onSelected = viewModel::setSleepTimer)
         }
+
+        // 채널 정보 + 댓글 진입 (5차-C — 데이터 없으면 자동 생략)
+        ChannelInfoBlock(
+            channelName = currentItem?.channelName.orEmpty(),
+            details = streamDetails,
+            onOpenComments = { showComments = true },
+            onOpenChannel = onOpenChannel,
+        )
 
         // 대기열 (SCR-320)
         Text(

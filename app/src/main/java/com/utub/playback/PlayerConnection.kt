@@ -71,6 +71,7 @@ class PlayerConnection @Inject constructor(
     fun pause() = controller?.pause()
     fun seekTo(positionMs: Long) = controller?.seekTo(positionMs)
     fun seekBy(deltaMs: Long) = controller?.seekTo((positionMs + deltaMs).coerceAtLeast(0))
+    fun seekToLiveEdge() { controller?.seekToDefaultPosition() }
     fun setSpeed(speed: Float) = controller?.setPlaybackSpeed(speed)
 
     fun stopService() = sendCustomCommand(PlaybackService.CMD_STOP_SERVICE, Bundle.EMPTY)

@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +46,7 @@ fun HybridScreen(
     webNavTick: Int,
     webViewHolder: WebViewHolder,
     onLogoClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     viewModel: HybridWebViewModel = hiltViewModel(),
 ) {
     val controller = remember { WebController() }
@@ -96,6 +100,16 @@ fun HybridScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
             }
+            Spacer(Modifier.weight(1f))
+            // 네이티브 검색 (5차): 웹 검색 레이아웃이 웹뷰에서 깨지는 문제의 해법 — docs/09 §22
+            Icon(
+                Icons.Default.Search,
+                contentDescription = "검색",
+                modifier = Modifier
+                    .size(22.dp)
+                    .clickable(onClick = onSearchClick),
+                tint = MaterialTheme.colorScheme.onBackground,
+            )
         }
 
         Box(modifier = Modifier.fillMaxSize()) {

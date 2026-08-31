@@ -35,6 +35,7 @@ class PlayerViewModel @Inject constructor(
     val isResolving: StateFlow<Boolean> = stateHolder.isResolving
     val isLiveStream: StateFlow<Boolean> = stateHolder.isLiveStream
     val noVideoTrack: StateFlow<Boolean> = stateHolder.noVideoTrack
+    val streamDetails: StateFlow<com.utub.playback.PlayerStateHolder.StreamDetails?> = stateHolder.streamDetails
     val isPlaying: StateFlow<Boolean> = connection.isPlaying
     val isBuffering: StateFlow<Boolean> = connection.isBuffering
     val durationMs: StateFlow<Long> = connection.durationMs
@@ -97,6 +98,8 @@ class PlayerViewModel @Inject constructor(
     fun playPause() = connection.playPause()
     fun seekTo(ms: Long) = connection.seekTo(ms)
     fun seekBy(deltaMs: Long) = connection.seekBy(deltaMs)
+    /** 라이브 엣지(실시간 지점) 복귀 — 타임시프트 후 "실시간으로" (5차) */
+    fun seekToLiveEdge() = connection.seekToLiveEdge()
     fun next() = stateHolder.queue.next()
     fun previous() = stateHolder.queue.previous()
 

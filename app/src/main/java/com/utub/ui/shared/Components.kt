@@ -231,3 +231,100 @@ fun EmptyState(message: String, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * 유튜브 앱식 세로 카드 (5차 — 검색 결과): 큰 썸네일(전체폭) + 아래 아바타·제목·메타.
+ * 사용자 레퍼런스(유튜브 앱 검색 화면)와 동일 구성.
+ */
+@Composable
+fun BigVideoCard(
+    title: String,
+    channelName: String,
+    thumbnailUrl: String?,
+    durationMs: Long,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    avatarUrl: String? = null,
+    metaText: String? = null,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(bottom = 10.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (durationMs > 0) {
+                Text(
+                    text = formatDuration(durationMs),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            if (avatarUrl != null) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(top = 2.dp, end = 10.dp)
+                        .width(36.dp)
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(50)),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(channelName.ifBlank { null }, metaText).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (onPlayNext != null || onAddToQueue != null) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.MoreVert, "더보기", modifier = Modifier.size(18.dp))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        onPlayNext?.let {
+                            DropdownMenuItem(text = { Text("다음에 재생") }, onClick = { it(); menuOpen = false })
+                        }
+                        onAddToQueue?.let {
+                            DropdownMenuItem(text = { Text("대기열에 추가") }, onClick = { it(); menuOpen = false })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -45,6 +45,19 @@ class PlayerStateHolder @Inject constructor() {
     val noVideoTrack: StateFlow<Boolean> = _noVideoTrack.asStateFlow()
     fun setNoVideoTrack(none: Boolean) { _noVideoTrack.value = none }
 
+    // ── 상세화면 채널 정보 (5차-C) — 해석 완료 시 서비스가 채움, 로컬/실패 시 null ──
+    data class StreamDetails(
+        val uploaderAvatarUrl: String?,
+        val uploaderUrl: String?,
+        val subscriberCount: Long,
+        val viewCount: Long,
+        val likeCount: Long,
+        val description: String?,
+    )
+    private val _streamDetails = MutableStateFlow<StreamDetails?>(null)
+    val streamDetails: StateFlow<StreamDetails?> = _streamDetails.asStateFlow()
+    fun setStreamDetails(d: StreamDetails?) { _streamDetails.value = d }
+
     // ── 화질 선택 (2차 이관분) — 0 = 자동(720p 이하 최고) ──────────────────
     private val _preferredQuality = MutableStateFlow(0)
     val preferredQuality: StateFlow<Int> = _preferredQuality.asStateFlow()

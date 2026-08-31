@@ -202,7 +202,16 @@ class PlaybackService : MediaSessionService() {
         // raw 플레이어의 타임라인은 항상 단일 곡이라, 세션이 직접 받으면
         // ① 알림/블루투스 next·prev가 QueueManager에 도달하지 못하고
         // ② 복원 직후(빈 타임라인) play가 prepare→ENDED로 이어져 다음 곡으로 잘못 진행된다.
+        // 알림 본문 탭 → 앱 실행 + 플레이어 화면 (공유 직진입과 같은 EXTRA_OPEN_PLAYER 경로 재사용)
+        val sessionActivity = android.app.PendingIntent.getActivity(
+            this, 0,
+            Intent(this, com.utub.MainActivity::class.java)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(com.utub.MainActivity.EXTRA_OPEN_PLAYER, true),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
         mediaSession = MediaSession.Builder(this, QueueForwardingPlayer(player))
+            .setSessionActivity(sessionActivity)
             .setCallback(sessionCallback)
             .setCustomLayout(ImmutableList.of(stopButton))
             .build()
@@ -298,6 +307,7 @@ class PlaybackService : MediaSessionService() {
             stateHolder.setError(null)
             try {
                 // 오프라인 저장본이 있으면 네트워크 해석 없이 로컬 파일 재생 (3차 — 오프라인+데이터 절약)
+                stateHolder.setStreamDetails(null) // 새 곡 해석 시작 — 이전 곡 정보 잔상 방지
                 val local = downloadDao.get(item.videoId)
                 if (local != null && java.io.File(local.filePath).exists()) {
                     stateHolder.setLiveStream(false)
@@ -339,6 +349,16 @@ class PlaybackService : MediaSessionService() {
                         .map { it.heightPx }.filter { it > 0 }.distinct().sortedDescending(),
                 )
                 stateHolder.setAvailableSubtitles(streams.subtitles)
+                stateHolder.setStreamDetails(
+                    PlayerStateHolder.StreamDetails(
+                        uploaderAvatarUrl = streams.uploaderAvatarUrl,
+                        uploaderUrl = streams.uploaderUrl,
+                        subscriberCount = streams.subscriberCount,
+                        viewCount = streams.viewCount,
+                        likeCount = streams.likeCount,
+                        description = streams.description,
+                    ),
+                )
                 val metadata = MediaMetadata.Builder()
                     .setTitle(streams.title)
                     .setArtist(streams.channelName)

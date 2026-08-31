@@ -108,11 +108,57 @@ class NewPipeStreamExtractor(
                 isLive = isLive,
                 liveUrl = liveUrl,
                 subtitles = extractSubtitles(info),
+                uploaderAvatarUrl = runCatching { info.uploaderAvatars.maxByOrNull { it.width }?.url }.getOrNull(),
+                uploaderUrl = info.uploaderUrl?.takeIf { it.isNotBlank() },
+                subscriberCount = runCatching { info.uploaderSubscriberCount }.getOrDefault(-1),
+                viewCount = info.viewCount,
+                likeCount = info.likeCount,
+                description = runCatching { info.description?.content?.takeIf { it.isNotBlank() } }.getOrNull(),
             )
             cache.put(videoId, resolved)
             resolved
         }
     }
+
+    /** 댓글 (5차-C) — CommentsInfo 경유, 보기 전용. 비활성 영상은 disabled 플래그 */
+    override suspend fun comments(videoId: String, page: Any?): com.utub.extractor.CommentsPage =
+        withContext(Dispatchers.IO) {
+            ensureInit()
+            rateLimiter.execute {
+                mapErrors {
+                    val url = watchUrl(videoId)
+                    val items: List<org.schabi.newpipe.extractor.comments.CommentsInfoItem>
+                    val next: org.schabi.newpipe.extractor.Page?
+                    if (page == null) {
+                        val ci = org.schabi.newpipe.extractor.comments.CommentsInfo.getInfo(ServiceList.YouTube, url)
+                        if (ci.isCommentsDisabled) {
+                            return@mapErrors com.utub.extractor.CommentsPage(emptyList(), null, disabled = true)
+                        }
+                        items = ci.relatedItems
+                        next = ci.nextPage
+                    } else {
+                        val more = org.schabi.newpipe.extractor.comments.CommentsInfo.getMoreItems(
+                            ServiceList.YouTube, url, page as org.schabi.newpipe.extractor.Page,
+                        )
+                        items = more.items
+                        next = more.nextPage
+                    }
+                    com.utub.extractor.CommentsPage(
+                        comments = items.map { c ->
+                            com.utub.extractor.CommentData(
+                                author = c.uploaderName.orEmpty(),
+                                avatarUrl = runCatching { c.uploaderAvatars.maxByOrNull { it.width }?.url }.getOrNull(),
+                                text = cleanHtml(c.commentText?.content.orEmpty()),
+                                likeCount = c.likeCount,
+                                publishedText = c.textualUploadDate,
+                                isPinned = c.isPinned,
+                            )
+                        },
+                        nextPage = next,
+                    )
+                }
+            }
+        }
 
     override suspend fun search(query: String): List<VideoSummary> = withContext(Dispatchers.IO) {
         ensureInit()
@@ -165,6 +211,19 @@ class NewPipeStreamExtractor(
         throw ExtractException.Network(e)
     }
 
+    /** 댓글 텍스트의 HTML 잔재 정리 — 태그 제거 + 엔티티 디코드 (5차-C) */
+    private fun cleanHtml(raw: String): String = raw
+        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&apos;", "'")
+        .replace("&#39;", "'")
+        .replace("&quot;", "\"")
+        .replace("&nbsp;", " ")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+        .trim()
+
     /** 자막: 언어당 1개 — 일반 자막 우선, 없으면 자동 생성 (CC, 2차 이관분) */
     private fun extractSubtitles(info: StreamInfo): List<com.utub.extractor.SubtitleTrack> =
         info.subtitles.orEmpty()
@@ -194,6 +253,7 @@ class NewPipeStreamExtractor(
         durationMs = duration * 1000,
         viewCount = viewCount.takeIf { it >= 0 },
         uploadedText = textualUploadDate,
+        uploaderAvatarUrl = runCatching { uploaderAvatars.maxByOrNull { it.width }?.url }.getOrNull(),
     )
 
     companion object {

@@ -24,6 +24,9 @@ class PlayerRepository @Inject constructor(
 
     suspend fun resolve(videoId: String): ResolvedStreams = extractor.resolveStreams(videoId)
 
+    /** 댓글 조회 (5차-C) */
+    suspend fun comments(videoId: String, page: Any? = null) = extractor.comments(videoId, page)
+
     fun select(streams: ResolvedStreams, audioOnly: Boolean, targetHeight: Int = 720): PlaybackSelection =
         StreamSelector.select(streams, audioOnly, targetHeight)
 

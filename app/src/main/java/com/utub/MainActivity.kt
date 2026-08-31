@@ -295,9 +295,16 @@ private fun UTubApp(
                         webViewHolder = webViewHolder,
                         // 로고 탭 = 유튜브 홈 (하단 홈 탭과 동일 경로 → 탭 하이라이트 동기화)
                         onLogoClick = { webTarget = com.utub.webview.YT_HOME; webNavTick++ },
+                        onSearchClick = { navController.navigate("search") { launchSingleTop = true } },
                     )
                 }
                 composable("library") { com.utub.ui.library.LibraryScreen() }
+                composable("search") {
+                    SearchScreen(
+                        onBack = { navController.navigate("home") { popUpTo("home") { inclusive = false } } },
+                        onVideoPlayed = { navController.navigate("player") { launchSingleTop = true } },
+                    )
+                }
                 composable("settings_tab") { SettingsScreen(onBack = { navController.navigate("home") }) }
                 composable("player") {
                     PlayerScreen(
@@ -305,6 +312,12 @@ private fun UTubApp(
                             if (!navController.popBackStack()) {
                                 navController.navigate("home") { popUpTo("player") { inclusive = true } }
                             }
+                        },
+                        // 채널 행 탭 → 유튜브 웹 채널 페이지 (로고 탭과 같은 webTarget 경로 재사용)
+                        onOpenChannel = { url ->
+                            webTarget = url
+                            webNavTick++
+                            navController.navigate("home") { popUpTo("player") { inclusive = true } }
                         },
                         viewModel = playerViewModel,
                         isInPip = isInPip,
