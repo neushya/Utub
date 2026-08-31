@@ -138,9 +138,14 @@ fun PlayerScreen(
     var fsControlsVisible by remember { mutableStateOf(true) }
     // 더블탭 ±10초 피드백 (null = 숨김, true = 앞으로) — 요구: 좌/우 더블탭 시크
     var seekFlash by remember { mutableStateOf<Boolean?>(null) }
+    // 일반 화면 오버레이 컨트롤 (유튜브 앱 동일: 탭 → ▶/⏸ 표시 → 아이콘 탭해야 동작)
+    var ptControlsVisible by remember { mutableStateOf(false) }
     var videoWidthPx by remember { androidx.compose.runtime.mutableIntStateOf(1) }
     androidx.compose.runtime.LaunchedEffect(seekFlash) {
         if (seekFlash != null) { kotlinx.coroutines.delay(700); seekFlash = null }
+    }
+    androidx.compose.runtime.LaunchedEffect(ptControlsVisible, isPlaying) {
+        if (ptControlsVisible && isPlaying) { kotlinx.coroutines.delay(3_000); ptControlsVisible = false }
     }
     fun setFullscreen(on: Boolean) {
         isFullscreen = on
@@ -245,10 +250,10 @@ fun PlayerScreen(
                     // 더블탭: 좌=10초 뒤로 / 우=10초 앞으로 (유튜브 앱 동일, 라이브 제외)
                     // 싱글탭: 전체화면 컨트롤 토글 (기존 동작 유지 — 표준 API로 더블탭과 분리)
                     detectTapGestures(
-                        // 싱글탭: 일반 화면 = 재생/일시정지 (사용자 요청) / 전체화면 = 컨트롤 토글
+                        // 싱글탭: 오버레이 표시 토글 — 아이콘을 탭해야 재생/정지 (유튜브 앱 동일)
                         onTap = {
                             if (isFullscreen) fsControlsVisible = !fsControlsVisible
-                            else viewModel.playPause()
+                            else ptControlsVisible = !ptControlsVisible
                         },
                         onDoubleTap = { offset ->
                             if (!isLive || durationMs > 0) {
@@ -261,6 +266,27 @@ fun PlayerScreen(
                 },
             contentAlignment = Alignment.Center,
         ) {
+            // 유튜브 앱식 중앙 ▶/⏸ (일반 화면 전용 — 전체화면은 자체 오버레이 보유)
+            if (!surfaceOnly && ptControlsVisible) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .background(Color.Black.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape)
+                        .clickable {
+                            viewModel.playPause()
+                            ptControlsVisible = true // 조작 직후엔 유지 (자동 숨김 타이머 재시작)
+                        }
+                        .padding(14.dp)
+                        .zIndex(2f),
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) "일시정지" else "재생",
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+            }
             seekFlash?.let { forward ->
                 Text(
                     if (forward) "10초 ⏩" else "⏪ 10초",
